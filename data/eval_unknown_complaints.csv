@@ -1,0 +1,21 @@
+complaint,expected_status,source
+Visual voicemail transcription stopped working after the carrier settings update.,not_known,synthetic_demo_authored
+My voicemail greeting resets to the default every week.,not_known,synthetic_demo_authored
+Caller ID shows the wrong name when I call people.,not_known,synthetic_demo_authored
+My smartwatch cellular line will not pair with my number.,not_known,synthetic_demo_authored
+Hotspot tethering is blocked even though browsing works.,not_known,synthetic_demo_authored
+The satellite emergency texting feature is not available on my phone.,not_known,synthetic_demo_authored
+My number porting request from another operator is stuck.,not_known,synthetic_demo_authored
+The parental control filter blocks school websites.,not_known,synthetic_demo_authored
+My car's built-in connectivity module lost its connection after the update.,not_known,synthetic_demo_authored
+My conference bridge number gives a busy tone.,not_known,synthetic_demo_authored
+The spam call filter is blocking calls from my doctor.,not_known,synthetic_demo_authored
+My e-reader cannot download books over the cellular connection.,not_known,synthetic_demo_authored
+The data usage counter shows usage while I was offline.,not_known,synthetic_demo_authored
+My landline voicemail PIN is not accepted.,not_known,synthetic_demo_authored
+Call forwarding to my office number stopped working.,not_known,synthetic_demo_authored
+My tablet's eSIM QR code says it was already used.,not_known,synthetic_demo_authored
+International SMS to one country never delivers.,not_known,synthetic_demo_authored
+The app widget shows the wrong remaining balance graphic.,not_known,synthetic_demo_authored
+Video calls on a messaging app freeze but voice calls are fine.,not_known,synthetic_demo_authored
+My kids' smartwatch location sharing stopped updating.,not_known,synthetic_demo_authored

@@ -1,0 +1,363 @@
+article_id,title,content,category,intent,product,version,status,source,created_at,updated_at
+KB-001,Mobile data not working: connection checklist,"Symptoms: Mobile data is switched on but apps and websites do not load, while calls may still work.
+Resolution steps:
+1. Verify that mobile data is enabled on the device and that airplane mode is off.
+2. Confirm the device has network service (signal bars shown).
+3. Check that the data balance or plan allowance is available through the approved account view.
+4. Restart the device and retry the data connection.
+5. Collect the device model, location and time of the failure and escalate if data remains unavailable.
+Escalate when: Data remains unavailable after restart with network service present.
+Caution: Do not change APN or network settings that are not listed in this article.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Mobile,mobile_data_not_working,mobile data,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-002,Slow mobile data: standard checks,"Symptoms: Mobile data works but pages and apps load slowly.
+Resolution steps:
+1. Check signal availability and whether the slowdown occurs consistently or only in certain places.
+2. Restart the device and retry the connection.
+3. Collect time and location details if the slowdown continues.
+Escalate when: The slowdown continues across locations after a device restart.
+Caution: Do not quote or promise specific speeds.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Mobile,mobile_data_slow,mobile data,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-003,Dropped calls: signal and device checks,"Symptoms: Voice calls disconnect unexpectedly during the conversation.
+Resolution steps:
+1. Check signal availability where the calls drop.
+2. Retry calls from another location if possible.
+3. Restart the device.
+4. Record the time and frequency of dropped calls for escalation if the issue continues.
+Escalate when: Calls keep dropping after the device restart and in more than one location.
+Caution: Do not attribute drops to a network fault unless a confirmed outage exists.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Calls,call_drops,voice service,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-004,Poor call quality: triage,"Symptoms: Callers cannot hear clearly, or audio is choppy or echoing.
+Resolution steps:
+1. Check signal availability during the affected calls.
+2. Retry the call to confirm the problem repeats.
+3. Restart the device.
+4. Record whether incoming, outgoing, or both call directions are affected.
+Escalate when: Quality problems persist on calls in both directions after a restart.
+Caution: Do not ask the customer to change device hardware settings that are not listed here.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Calls,call_quality,voice service,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-005,No network signal on the device,"Symptoms: The phone shows no signal, no service, or emergency calls only.
+Resolution steps:
+1. Restart the device.
+2. Confirm the SIM is seated correctly.
+3. Check whether network service returns after the restart.
+4. Escalate with location and device details if no signal persists.
+Escalate when: No signal persists after restart and SIM reseat.
+Caution: Do not confirm a mast or area outage unless it is listed in the approved service-status source.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Mobile,no_signal,mobile network,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-006,SMS or OTP messages not received,"Symptoms: Text messages or one-time passwords are not arriving.
+Resolution steps:
+1. Restart the device.
+2. Verify that network service is available.
+3. Send a test message.
+4. Record whether incoming or outgoing SMS is affected.
+Escalate when: Messages still fail after restart while network service is available.
+Caution: Never ask the customer to share an OTP with the agent.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",SMS,sms_not_received,SMS service,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-007,Roaming service not working,"Symptoms: No service or no data while travelling abroad.
+Resolution steps:
+1. Confirm roaming is enabled for the service.
+2. Restart the device.
+3. Retry network registration.
+4. Escalate with the roaming location and service details if unsuccessful.
+Escalate when: Roaming remains unavailable after registration is retried.
+Caution: Do not quote roaming prices; refer to the approved tariff information.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Roaming,roaming_not_working,roaming,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-008,5G not available on a capable device,"Symptoms: Device supports 5G but only connects to 4G or lower.
+Resolution steps:
+1. Confirm that the device and the service support 5G.
+2. Check the selected network mode on the device.
+3. Restart the device.
+4. Record the observed network mode if 5G remains unavailable.
+Escalate when: 5G remains unavailable with the correct network mode selected.
+Caution: Do not promise 5G coverage at a specific address.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",5G,5g_not_available,5G service,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-009,Slow broadband: diagnostic steps,"Symptoms: Broadband connects but speed is slower than expected.
+Resolution steps:
+1. Restart the router/ONT.
+2. Test the connection again.
+3. Compare performance across devices where possible.
+4. Record the time pattern and connection details if the slowdown persists.
+Escalate when: Slow speeds persist across devices after a restart.
+Caution: Do not promise a specific speed.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Broadband,broadband_slow,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-010,Broadband disconnects intermittently,"Symptoms: Fixed broadband connection drops and reconnects intermittently.
+Resolution steps:
+1. Check router/ONT status indicators.
+2. Restart the equipment.
+3. Observe whether the connection drops again.
+4. Record the time pattern of the drops for escalation if intermittent drops continue.
+Escalate when: Intermittent drops continue after the equipment restart.
+Caution: Do not attribute drops to the customer's equipment without status evidence.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Broadband,broadband_disconnects,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-011,Broadband connected but no internet,"Symptoms: The router shows it is connected but no device can reach the internet.
+Resolution steps:
+1. Check router/ONT status lights and physical connections.
+2. Restart the router/ONT equipment.
+3. Retry internet access from a second device.
+4. Escalate with device and status-light details if service remains unavailable.
+Escalate when: Service remains unavailable on all devices after the restart.
+Caution: Do not confirm an outage unless it is listed in the approved service-status source.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Internet,broadband_no_internet,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-012,Home Wi-Fi not working,"Symptoms: Devices cannot connect to, or lose, the home Wi-Fi network.
+Resolution steps:
+1. Check that Wi-Fi is enabled on the affected device.
+2. Restart the router.
+3. Retry from another device if available.
+4. Record whether the issue affects all devices.
+Escalate when: No device can connect after the router restart.
+Caution: Do not ask the customer to share their Wi-Fi password in chat.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Wi-Fi,wifi_not_working,Wi-Fi,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-013,Problem remains after router restart,"Symptoms: The customer restarted the router but the connection problem remains.
+Resolution steps:
+1. Confirm the router/ONT completed its restart.
+2. Check connection status and physical links.
+3. Retry the service.
+4. Escalate with the status indicators if the issue remains.
+Escalate when: The issue remains after a completed restart with physical links confirmed.
+Caution: Do not recommend a factory reset; it is not part of this procedure.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Wi-Fi,router_restart_issue,router,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-014,New connection status enquiry,"Symptoms: Customer asks when a new connection or installation will be completed.
+Resolution steps:
+1. Verify the request reference.
+2. Check the installation status through the approved support process.
+3. Route the request for agent follow-up if the status cannot be confirmed.
+Escalate when: The installation status cannot be confirmed.
+Caution: Do not commit to an installation date that is not shown in the approved status.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Internet,new_connection_status,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-015,Service not yet activated,"Symptoms: A purchased service has not become active.
+Resolution steps:
+1. Verify the activation request status.
+2. Confirm the required activation step has completed.
+3. Route the case for agent follow-up if the service remains inactive.
+Escalate when: The service remains inactive after the activation step is confirmed.
+Caution: Do not promise an activation time.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Internet,service_activation,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-016,Cannot log in to the self-care account,"Symptoms: The customer cannot sign in to the online account or app.
+Resolution steps:
+1. Verify the entered account identifier.
+2. Retry login.
+3. Use the approved account recovery process if access remains unavailable.
+Escalate when: Access remains unavailable after the recovery process.
+Caution: Never ask the customer for their password.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Account,account_login,customer account,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-017,Password reset,"Symptoms: The customer needs to reset a forgotten password.
+Resolution steps:
+1. Use the approved password-reset flow.
+2. Complete the verification step.
+3. Escalate through account support if recovery cannot be completed.
+Escalate when: The verification step cannot be completed.
+Caution: Never ask the customer to read out a verification code.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Account,password_reset,customer account,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-018,Updating account profile details,"Symptoms: The customer wants to change profile information such as email or address.
+Resolution steps:
+1. Use the approved account-profile update flow.
+2. Verify the saved details.
+3. Route the request to an agent if the required field cannot be changed.
+Escalate when: The required field cannot be changed through the flow.
+Caution: Do not change identity details without the approved verification.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Account,profile_update,customer account,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-019,Raising a billing dispute,"Symptoms: The customer disagrees with an amount on the bill.
+Resolution steps:
+1. Review the bill details.
+2. Identify the disputed line item.
+3. Record the billing period and the reason for the dispute.
+4. Submit the dispute through the approved billing process.
+Escalate when: The dispute cannot be resolved by reviewing the bill details.
+Caution: Do not promise a refund or credit amount; outcomes depend on the billing review.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Billing,billing_dispute,mobile bill,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-020,Unexpected charge on the bill,"Symptoms: An unrecognised charge appears on the bill.
+Resolution steps:
+1. Review the bill line item and the billing period.
+2. Compare it with the account activity available to the customer.
+3. Route the charge for billing review if it remains unexplained.
+Escalate when: The charge remains unexplained after comparison with account activity.
+Caution: Do not state the cause of a charge without evidence from the bill.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Billing,unexpected_charge,mobile bill,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-021,Bill payment failed,"Symptoms: A bill payment was declined or did not complete.
+Resolution steps:
+1. Verify the payment status through the approved billing view.
+2. Check whether any amount was deducted for the failed attempt.
+3. Retry only through the approved payment flow if appropriate.
+4. Route the case to payment support if the transaction remains unsuccessful.
+Escalate when: The transaction remains unsuccessful or an amount was deducted without the bill being paid.
+Caution: Never ask for full card numbers or security codes in chat.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Billing,payment_failed,payment,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-022,Checking refund status,"Symptoms: The customer asks where a refund is.
+Resolution steps:
+1. Verify the refund reference and the original transaction.
+2. Check the available refund status.
+3. Route the case to billing support if the status cannot be confirmed.
+Escalate when: The refund status cannot be confirmed.
+Caution: Do not quote refund timelines; they are not part of this knowledge base.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Billing,refund_status,refund,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-023,Changing plan,"Symptoms: The customer wants to upgrade, downgrade or switch plan.
+Resolution steps:
+1. Verify the current plan and the requested plan.
+2. Confirm eligibility through the approved plan-change flow.
+3. Submit the change if eligible.
+Escalate when: Eligibility cannot be confirmed.
+Caution: Do not quote plan prices from memory.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Recharge,plan_change,mobile plan,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-024,Providing plan information,"Symptoms: The customer asks about available plans.
+Resolution steps:
+1. Present the currently available plan information from the approved knowledge base.
+2. Ask the customer to select the plan they want to evaluate.
+Escalate when: The requested plan information is not available in the approved source.
+Caution: Do not invent plan features or prices.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Recharge,plan_information,mobile plan,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-025,Recharge not completed,"Symptoms: A recharge or top-up did not complete, or the balance did not update.
+Resolution steps:
+1. Verify the recharge transaction status.
+2. Check whether the balance updated.
+3. Route the transaction for review if the recharge remains incomplete.
+Escalate when: The recharge remains incomplete after the status check.
+Caution: Do not promise reversal of a deducted amount.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Recharge,recharge_issue,recharge plan,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-026,Activating a new SIM,"Symptoms: A new SIM has not activated.
+Resolution steps:
+1. Verify the SIM activation request.
+2. Complete the approved activation process.
+3. Restart the device after activation if required.
+Escalate when: The SIM does not activate after the approved process.
+Caution: Do not ask for SIM PUK codes in chat.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",SIM,sim_activation,SIM,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-027,SIM or eSIM replacement,"Symptoms: The customer needs a replacement SIM or eSIM.
+Resolution steps:
+1. Verify the account and replacement eligibility through the approved process.
+2. Create the replacement request if eligible.
+Escalate when: Eligibility cannot be verified.
+Caution: Replacement requests always require the approved identity verification.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",SIM,sim_replacement,eSIM,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-028,SIM not detected by the device,"Symptoms: The phone reports no SIM or an invalid SIM.
+Resolution steps:
+1. Power off the device.
+2. Reseat the SIM if appropriate.
+3. Restart the device and test detection again.
+4. Escalate if the SIM remains undetected.
+Escalate when: The SIM remains undetected after reseating.
+Caution: Do not ask the customer to cut or modify the SIM.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",SIM,sim_not_detected,SIM,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-029,Account security concern,"Symptoms: The customer reports suspicious activity or possible account compromise.
+Resolution steps:
+1. Do not disclose sensitive account information in chat.
+2. Use the approved account-security process to secure the account.
+3. Escalate suspicious activity for review.
+Escalate when: Any suspicious activity is reported.
+Caution: Treat as critical; never disclose account data before verification.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Account,account_security,customer account,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-030,Possible service outage,"Symptoms: The customer believes there is an area outage.
+Resolution steps:
+1. Check the approved service-status source for the relevant area and service.
+2. Provide only confirmed outage information.
+3. Escalate if no confirmed outage explains the issue.
+Escalate when: No confirmed outage explains the issue.
+Caution: Never speculate about outage causes or restoration times.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Internet,service_outage,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-031,Evening broadband drops: time-pattern diagnostic,"Symptoms: Broadband drops repeatedly at a similar time of day, often in the evening, even after the router has been restarted.
+Resolution steps:
+1. Record the exact times the drops occur over several days.
+2. Check whether the router/ONT status lights change when the connection drops.
+3. Test whether a wired device drops at the same time as Wi-Fi devices.
+4. If the customer has already restarted the router, do not repeat the restart; move to the line test request.
+5. Request a line test through the approved support process and attach the recorded time pattern.
+Escalate when: Drops continue at a repeating time after the router restart, or the customer relies on the service for work.
+Caution: Do not promise compensation or a fix date.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Broadband,broadband_disconnects,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-032,Duplicate charge review,"Symptoms: The customer reports being charged twice for the same item or period.
+Resolution steps:
+1. Locate both charges on the bill and note their dates and line-item names.
+2. Check whether the two charges cover the same billing period.
+3. Record the reference of each transaction.
+4. Submit a duplicate-charge dispute through the approved billing process.
+Escalate when: Both charges cover the same period and the duplication is confirmed.
+Caution: Do not promise a refund amount or timeline.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Billing,billing_dispute,mobile bill,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-033,Wi-Fi coverage and interference checks,"Symptoms: Wi-Fi is weak or unstable in parts of the home.
+Resolution steps:
+1. Check whether the problem occurs near the router as well as far from it.
+2. Restart the router.
+3. Test with a second device in the same location.
+4. Record which rooms and devices are affected for escalation.
+Escalate when: Wi-Fi fails close to the router on several devices.
+Caution: Do not recommend third-party equipment.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Wi-Fi,wifi_not_working,Wi-Fi,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-034,Suspected SIM swap or account takeover,"Symptoms: The customer suddenly lost service and suspects someone changed their SIM, or sees logins they do not recognise.
+Resolution steps:
+1. Treat the case as critical and do not disclose any account information in chat.
+2. Use the approved account-security process to secure the account.
+3. Escalate immediately to the security team with the time the customer noticed the issue.
+Escalate when: Always escalate.
+Caution: Never reset credentials or move the number without the approved verification.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Account,account_security,customer account,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-035,Pre-travel and on-arrival roaming checklist,"Symptoms: Customer is abroad and the phone does not register on a partner network.
+Resolution steps:
+1. Confirm roaming is enabled on the line before or after travel.
+2. Check that data roaming is switched on in the device settings if data is needed.
+3. Restart the device to trigger network registration.
+4. Record the country and the network name shown on the device for escalation.
+Escalate when: Registration still fails after the restart.
+Caution: Do not quote roaming charges.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Roaming,roaming_not_working,roaming,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-036,5G network mode and SIM compatibility,"Symptoms: A 5G phone stays on 4G.
+Resolution steps:
+1. Confirm the device model supports 5G.
+2. Confirm the plan includes 5G service.
+3. Check the preferred network mode includes 5G.
+4. Record the location and network mode shown if 5G is still not available.
+Escalate when: 5G is not available with a compatible device, plan and network mode.
+Caution: Do not promise 5G coverage.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",5G,5g_not_available,5G service,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-037,General checklist: a phone feature or setting is not working,"Symptoms: A phone feature such as voicemail, visual voicemail, Wi-Fi calling, hotspot, satellite or emergency messaging, or caller ID is missing, greyed out or not working, and no specific article matches.
+Resolution steps:
+1. Confirm the device model and software version support the feature.
+2. Check that the feature is switched on in the device settings.
+3. Confirm the customer's plan includes the feature using the approved plan information.
+4. Restart the device and test the feature again.
+5. Record the device model, software version and any message shown, then escalate if the feature still does not work.
+Escalate when: The feature still fails on a supported device with the plan confirmed.
+Caution: General guidance only, not a confirmed fix for this specific issue. Do not promise feature availability.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Mobile,unknown,mobile network,1,ACTIVE,synthetic_demo_kb_general,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-038,General checklist: a home internet or router feature is not working,"Symptoms: A home internet, router or connected-home feature (for example a filter, a smart device, a TV box or a mesh unit) does not work and no specific article matches.
+Resolution steps:
+1. Confirm whether the problem affects one device or every device on the home network.
+2. Restart the router/ONT and the affected device.
+3. Check the feature's setting in the router or self-care account if one is provided.
+4. Record the device type, the time of the failure and any message shown, then escalate if it continues.
+Escalate when: The feature still fails after the restart and settings check.
+Caution: General guidance only, not a confirmed fix. Do not recommend third-party equipment.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Internet,unknown,router,1,ACTIVE,synthetic_demo_kb_general,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-039,General checklist: a calling or messaging feature is not working,"Symptoms: A calling or messaging feature (for example call forwarding, conference numbers, international SMS or spam filtering) behaves unexpectedly and no specific article matches.
+Resolution steps:
+1. Confirm whether the issue affects incoming, outgoing or both directions.
+2. Test with a different number or destination to see whether the issue is specific.
+3. Restart the device and test again.
+4. Record the numbers involved (masked), the times and any message heard, then escalate.
+Escalate when: The feature still fails after the test calls.
+Caution: General guidance only, not a confirmed fix. Never read out or store full customer numbers.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Calls,unknown,voice service,1,ACTIVE,synthetic_demo_kb_general,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-040,"General checklist: SIM, eSIM or connected device problem","Symptoms: A SIM, eSIM, smartwatch, tablet, car or vehicle connectivity module, or other connected device line does not work as expected and no specific article matches.
+Resolution steps:
+1. Confirm which device and which line or profile are affected.
+2. Check that the line or eSIM profile is shown as active for the device.
+3. Restart both the device and any paired phone.
+4. Record the device model, the profile status and any message shown, then escalate if it remains unresolved.
+Escalate when: The line or profile is active but the device still cannot use it.
+Caution: General guidance only. eSIM or SIM changes always require the approved identity verification.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",SIM,unknown,SIM,1,ACTIVE,synthetic_demo_kb_general,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-041,"General checklist: billing, payment or account enquiry","Symptoms: A billing, payment, balance or account question does not match a specific article.
+Resolution steps:
+1. Identify the bill, transaction or account item the customer is asking about.
+2. Review the item through the approved billing or account view.
+3. Explain only what the approved view shows.
+4. Route the case to billing or account support if the item cannot be explained.
+Escalate when: The item cannot be explained from the approved view.
+Caution: General guidance only. Do not quote prices, credits, refunds or timelines.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Billing,unknown,mobile bill,1,ACTIVE,synthetic_demo_kb_general,2026-01-01T00:00:00,2026-01-01T00:00:00
+KB-042,Moving an eSIM to a new phone (draft - pending review),"Symptoms: The customer bought a new phone and wants to move their eSIM.
+Resolution steps:
+1. Verify the account through the approved identity process.
+2. Issue a new eSIM profile for the new device.
+3. Ask the customer to install the profile and restart the phone.
+Escalate when: The new profile does not install.
+Caution: Draft: not yet approved by a reviewer.
+Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",SIM,sim_replacement,eSIM,1,DRAFT,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00

@@ -1,0 +1,13 @@
+name,parent_name,icon,description,sort_order
+Internet,,globe,"Home internet access, outages, activation and installation",0
+Broadband,Internet,router,Fixed broadband speed and stability,1
+Wi-Fi,Internet,wifi,Home Wi-Fi and router behaviour,2
+Mobile,,phone,Mobile data and network signal,3
+5G,Mobile,bolt,5G availability and network mode,4
+Calls,,call,Voice call drops and quality,5
+SMS,,message,Text messages and one-time passwords,6
+SIM,,sim,"SIM / eSIM detection, activation and replacement",7
+Billing,,receipt,"Bills, charges, payments and refunds",8
+Recharge,,wallet,"Recharges, top-ups and plans",9
+Account,,user,"Login, password, profile and account security",10
+Roaming,,plane,Service while travelling abroad,11

@@ -1,0 +1,19 @@
+name,support_category,keywords
+broadband,Broadband,broadband|fibre|fiber|home internet|internet connection
+router,Wi-Fi,router|modem
+ONT,Broadband,ont|optical terminal|fibre box
+Wi-Fi,Wi-Fi,wifi|wireless network
+mobile data,Mobile,mobile data|mobile internet|data connection|4g|lte|cellular data
+mobile network,Mobile,signal|network coverage|coverage|network
+5G service,5G,5g
+voice service,Calls,call|calls|calling|voice call
+SMS service,SMS,sms|text message|text messages|otp
+SIM,SIM,sim|sim card
+eSIM,SIM,esim|e sim
+mobile bill,Billing,bill|invoice|charge|charged|billing
+payment,Billing,payment|card declined|transaction
+refund,Billing,refund
+recharge plan,Recharge,recharge|top up|topup|balance
+mobile plan,Recharge,plan|plans|package|tariff
+customer account,Account,account|login|log in|password|profile
+roaming,Roaming,roaming|abroad|international

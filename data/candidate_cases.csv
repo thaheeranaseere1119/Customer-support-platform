@@ -1,0 +1,13 @@
+complaint,category,source
+"Wi-Fi calling stopped connecting on my phone, calls only work on mobile signal now.",Calls,synthetic_demo_authored
+My Wi-Fi calling toggle is greyed out after the latest phone update.,Calls,synthetic_demo_authored
+Wi-Fi calling says not available at home even though my Wi-Fi itself works fine.,Calls,synthetic_demo_authored
+"Wi-Fi calling fails indoors where the mobile signal is weak, the call never connects.",Calls,synthetic_demo_authored
+My smartwatch eSIM stopped sharing my phone number and calls do not ring on the watch.,SIM,synthetic_demo_authored
+The cellular plan on my smartwatch shows no service after pairing with my phone.,SIM,synthetic_demo_authored
+My watch eSIM line cannot receive calls when my phone is switched off.,SIM,synthetic_demo_authored
+Number sharing on my smartwatch failed during setup of the watch eSIM.,SIM,synthetic_demo_authored
+Caller ID shows a different name to the people I call.,Calls,synthetic_demo_authored
+The data usage counter in the app shows usage on days I was offline.,Mobile,synthetic_demo_authored
+Hotspot tethering is blocked on my plan even though I can browse normally.,Mobile,synthetic_demo_authored
+SMS to one specific country never gets delivered.,SMS,synthetic_demo_authored
