@@ -1,0 +1,42 @@
+# PostgreSQL + pgvector, FastAPI backend, React frontend (served by nginx).
+# Usage: docker compose up --build      ->  http://localhost:8080
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: telecom
+      POSTGRES_PASSWORD: telecom
+      POSTGRES_DB: telecom_support
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U telecom -d telecom_support"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    environment:
+      APP_ENV: production
+      DEMO_MODE: ${DEMO_MODE:-true}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      DATABASE_URL: postgresql://telecom:telecom@postgres:5432/telecom_support
+      DB_FALLBACK_TO_SQLITE: "false"
+      DB_CONNECT_RETRIES: "30"
+      PGVECTOR_ENABLED: "true"
+      AUTO_SEED: "true"
+      CORS_ORIGINS: http://localhost:8080
+      HF_HUB_OFFLINE: "1"
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports: ["8000:8000"]
+
+  frontend:
+    build: { context: ./frontend }
+    depends_on:
+      backend: { condition: service_healthy }
+    ports: ["8080:80"]
+
+volumes:
+  pgdata:
