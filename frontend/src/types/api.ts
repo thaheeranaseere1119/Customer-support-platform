@@ -265,7 +265,7 @@ export interface Candidate {
   reviewed_at: string | null;
 }
 
-export interface ReviewResult { item_id: string; status: string; article: KnowledgeArticle | null; indexed: boolean; index_version: number | null; dataset_record_id?: string | null; updated_article?: KnowledgeArticle | null }
+export interface ReviewResult { item_id: string; status: string; article: KnowledgeArticle | null; indexed: boolean; index_version: number | null; dataset_record_id?: string | null; updated_article?: KnowledgeArticle | null; learned_example?: boolean }
 
 export interface EmergingIssue {
   id: string;
@@ -322,6 +322,20 @@ export interface IntentCreatePayload {
   created_by?: string;
 }
 
+export interface RealisticFailure {
+  complaint: string; expected_intent: string; got_intent: string; expected_articles: string[];
+  answered_from: string | null; wording_issues: string[];
+}
+
+/** Successes out of total, with the 95% lower confidence bound of the rate. */
+export interface ScoreConfidence { successes?: number; total?: number; lower_95: number | null }
+
+export interface RealisticEvaluation {
+  questions: number; confidence?: Record<string, ScoreConfidence>; intent_accuracy: number; correct_article_first: number; correct_article_in_top3: number;
+  answered_with_steps: number; clean_customer_wording: number; single_article_answers: number;
+  wording_issues: Record<string, number>; failures: RealisticFailure[];
+}
+
 export interface EvaluationRun {
   id: number;
   split: string;
@@ -336,6 +350,15 @@ export interface EvaluationRun {
     end_to_end: { cases: number; resolution_success_rate: number | null; escalation_rate: number | null; average_attempts: number; average_response_ms: number };
     leakage_check: { evaluated_tickets_found_in_index: number };
     intents_in_sample: string[];
+    /** Reasons to read the scores with care (small sample, demo-mode groundedness). Absent on older runs. */
+    warnings?: string[];
+    /** Customer-style questions labelled by hand. Absent on older runs. */
+    realistic?: RealisticEvaluation | null;
+    /** Absent on older runs. */
+    sample?: { unique_complaints: number; wordings: number; tested: number };
+    by_wording?: Record<string, { correct: number; total: number; accuracy: number | null; lower_95: number | null }>;
+    confidence?: Record<string, ScoreConfidence>;
+    generator?: "llm" | "template";
   };
   config: Record<string, unknown>;
   notes: string | null;

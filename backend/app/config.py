@@ -107,7 +107,7 @@ class Settings(BaseSettings):
     # A confidently classified issue type is answered from its own help article first (the cross-encoder scores
     # short questions low even for the right article). The article must still be this similar to the question.
     trusted_intent_confidence: float = 0.60
-    trusted_article_min_semantic: float = 0.30
+    trusted_article_min_semantic: float = 0.15
     # A general checklist is offered only when it is at least this close to the question; otherwise the customer
     # is asked for details instead of getting unrelated steps.
     general_checklist_min_semantic: float = 0.10  # measured: fitting questions >= 0.12, hardware faults <= 0.10

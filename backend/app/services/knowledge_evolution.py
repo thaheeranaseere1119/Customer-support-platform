@@ -17,7 +17,15 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.models import CandidateCase, ConversationMessage, DocumentChunk, KnowledgeArticle, SupportCase, Ticket
+from app.models import (
+    CandidateCase,
+    ConversationMessage,
+    DocumentChunk,
+    IntentTaxonomy,
+    KnowledgeArticle,
+    SupportCase,
+    Ticket,
+)
 from app.models._common import utcnow
 from app.services import handoff
 from app.services.embeddings import EmbeddingService
@@ -46,6 +54,7 @@ _SENTIMENTS = {"positive", "neutral", "negative", "frustrated", "urgent"}
 
 
 ALSO_ASKED = "Also asked as:"
+MAX_LEARNED_EXAMPLES = 200  # examples kept per issue type (seed examples plus approved customer wording)
 ARTICLE_CHUNK_CHARS = 2400  # help articles are indexed whole (agent and customer steps together)
 MAX_ALSO_ASKED = 12  # most recent customer phrasings kept on one article
 
@@ -366,6 +375,7 @@ class KnowledgeService:
             if article is not None:
                 candidate.approved_article_id = article.article_id
             cited = next((x["source_id"] for x in candidate.sources if x.get("source_type") == "knowledge_base"), None)
+            learned = self._learn_wording(db, final_intent, candidate) if candidate.origin in LIVE_ORIGINS else False
             updated = self._add_customer_wording(db, cited, candidate, reviewer) if kb_match else None
             if updated is not None:
                 candidate.approved_article_id = updated.article_id
@@ -388,7 +398,7 @@ class KnowledgeService:
                                {"candidate_id": candidate.id, "article_id": updated.article_id, "review": "approved"})
             db.flush()
             return {"item_id": item_id, "status": "approved", "article": article_to_dict(article) if article else None,
-                    "updated_article": article_to_dict(updated) if updated else None,
+                    "updated_article": article_to_dict(updated) if updated else None, "learned_example": learned,
                     "indexed": True, "index_version_pending": True, "dataset_record_id": record_id}
         article = self.latest(db, item_id)
         if article.status != "DRAFT":
@@ -399,6 +409,20 @@ class KnowledgeService:
         self.index_article(db, article)
         return {"item_id": item_id, "status": "approved", "article": article_to_dict(article), "indexed": True,
                 "index_version_pending": True}
+
+    def _learn_wording(self, db: Session, intent_name: str | None, candidate: CandidateCase) -> bool:
+        """Teach the classifier a reviewer-approved way of describing an issue type: the customer's own words become
+        an example of that issue type, so the next customer who puts it that way is recognised straight away."""
+        intent = db.scalar(select(IntentTaxonomy).where(IntentTaxonomy.name == intent_name)) if intent_name else None
+        phrase = re.sub(r"\s+", " ", strip_synthetic_tag(candidate.complaint)).strip()
+        examples = list(intent.example_complaints or []) if intent else []
+        if intent is None or not phrase or phrase.lower() in {e.lower() for e in examples}:
+            return False
+        intent.example_complaints = (examples + [phrase])[-MAX_LEARNED_EXAMPLES:]
+        db.flush()
+        taxonomy_service.invalidate()
+        log_event("example_learned", db=db, intent=intent.name, candidate_id=candidate.id)
+        return True
 
     def _add_customer_wording(self, db: Session, article_id: str | None, candidate: CandidateCase,
                               reviewer: str) -> KnowledgeArticle | None:

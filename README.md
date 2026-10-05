@@ -82,7 +82,7 @@ rebuilds whenever the stored chunks change, so separate processes always see new
 | LLM | Provider abstraction: `GeminiProvider` (AI MODE) and `MockProvider` (DEMO MODE, no key needed) |
 | Frontend | React 18, TypeScript, Vite, React Router, TanStack Query, plain CSS design system |
 | Auth | Staff accounts (PBKDF2-SHA256), HMAC-signed bearer tokens, login lockout; public customer endpoints |
-| Tests | pytest (249 tests), Vitest + Testing Library (37 tests), `scripts/verify_api.py` (43 live checks), `scripts/verify_llm.py` |
+| Tests | pytest (266 tests), Vitest + Testing Library (41 tests), `scripts/verify_api.py` (43 live checks), `scripts/verify_llm.py` |
 
 ## Project structure
 
@@ -275,6 +275,33 @@ DEMO_MODE=true backend/.venv/bin/python -m uvicorn app.main:app --app-dir backen
 ```
 
 ### Offline evaluation
+
+The Reports page and `python -m scripts.evaluate` measure the same pipeline customers use, on three kinds of questions:
+
+| Set | File | Used for |
+|---|---|---|
+| Realistic test questions (63, every issue type, labelled by hand) | `data/eval_realistic_complaints.csv` | The headline measurement. Never tuned on |
+| Practice questions (64 + 55, different wording) | `data/tune_realistic_complaints.csv`, `data/tune2_realistic_complaints.csv` | Finding weaknesses to fix |
+| Synthetic split + 4 seeded rewordings each (short, typos, casual, noise) | the 60K dataset | Regression checks; the split repeats a few templates |
+
+Latest results on the realistic test set: issue type 90.5% (57/63), answered from a correct article 90.5%, correct
+article in the top 3 96.8%, answered with steps 98.4%, clean customer wording 63/63. The synthetic rewordings score 8/8
+in every wording on both splits.
+
+Every rate on the Reports page is headlined by its 95% lower confidence bound (Wilson score), with the counts and the
+measured rate underneath, so a perfect result on a small sample reads "≥ 68%" (8/8) rather than "100%": a model can
+still be wrong, and a small sample cannot prove otherwise. Groundedness is shown as "Not measured" in demo mode
+(steps are copied from sources) and citation completeness as "Enforced" (the safety check removes uncited steps).
+
+How the classifier handles real wording (`backend/app/services/classifier.py`): keywords match by word stem and with
+up to two words in between; unknown words of five or more letters are spelling-corrected against the classifier's
+own vocabulary; context beats symptom ("travelling in Italy, no signal" is roaming); a specific billing issue beats a
+dispute matched only on a catch-all word; matches in the product area the customer names get a bonus. When a
+reviewer approves a new question under an issue type, the customer's wording becomes an example of that issue type,
+so the next customer who puts it that way is recognised straight away (new questions improve the classifier, always
+through human review). A question that matches no issue type is answered from the general checklist for its topic;
+guessing the nearest issue type's article was tried and rejected because it chose wrong articles for new problems. 191 extra example
+complaints (`scripts/seed_intent_examples.py`) are checked by a test to be independent of the test and practice sets.
 
 ```bash
 backend/.venv/bin/python scripts/evaluate.py --split held_out_test --limit 120

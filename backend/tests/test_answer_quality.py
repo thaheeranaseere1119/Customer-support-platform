@@ -119,3 +119,65 @@ def test_answer_follows_one_article_without_repeats(client, session_id, question
     assert all(first in step["citations"] for step in steps), (question, [s["citations"] for s in steps])
     texts = [step["customer_text"] for step in steps]
     assert len(texts) == len(set(texts)) and articles
+
+
+def _questions(name: str) -> list[str]:
+    return [r["complaint"] for r in csv.DictReader(open(ROOT_DIR / "data" / name, encoding="utf-8"))]
+
+
+def test_training_examples_are_independent_of_the_evaluation_questions():
+    """Examples that resemble a test or practice question would inflate the scores, so none may."""
+    import sys
+
+    from app.utils.text import jaccard
+    sys.path.insert(0, str(ROOT_DIR / "scripts"))
+    from seed_intent_examples import EXTRA_EXAMPLES
+    held = _questions("eval_realistic_complaints.csv") + _questions("tune_realistic_complaints.csv")
+    close = [(ex, q) for examples in EXTRA_EXAMPLES.values() for ex in examples for q in held if jaccard(ex, q) >= 0.5]
+    assert not close, close[:5]
+    tune2 = _questions("tune2_realistic_complaints.csv")
+    assert not [(p, q) for p in tune2 for q in _questions("eval_realistic_complaints.csv") if jaccard(p, q) >= 0.5]
+
+
+@pytest.mark.parametrize(("a", "b", "close"), [
+    ("disconnceting", "disconnecting", True), ("evennig", "evening", True), ("recieve", "receive", True),
+    ("router", "routers", True), ("signal", "single", False), ("refund", "refund", False),
+])
+def test_one_edit_apart(a, b, close):
+    from app.utils.text import one_edit_apart
+    assert one_edit_apart(a, b) is close
+
+
+@pytest.mark.parametrize(("question", "intent"), [
+    ("my broadband keeps disconnceting every evennig", "broadband_disconnects"),   # typos corrected
+    ("travelling in Portugal and there is no signal on my phone", "roaming_not_working"),  # context beats symptom
+    ("I was charged twice on my bill this month", "billing_dispute"),               # a specific dispute phrase stays
+    ("my calls keep getting disconnected", "call_drops"),                            # the named area (calls) wins
+])
+def test_classifier_handles_real_wording(db, services, question, intent):
+    assert services.classifier.classify(db, question).intent == intent
+
+
+def test_classifier_reads_sentiment_from_the_original_words(db, services):
+    from app.services.sentiment import analyze_sentiment
+    text = "my broadband keeps disconnceting and I'm really frustrated"
+    analysis = services.classifier.classify(db, text)
+    assert analysis.intent == "broadband_disconnects" and analysis.sentiment == analyze_sentiment(text).label
+
+
+def test_approved_new_wording_is_recognised_next_time(client, db, services, session_id):
+    """A new way of describing an issue, confirmed by a customer and approved by a reviewer, is learned."""
+    question = "a little x keeps showing where the bars on my mobile should be"
+    assert services.classifier.classify(db, question).intent != "no_signal"  # not recognised yet
+    first = resolve(client, session_id, question)
+    candidate_id = client.post("/api/v1/feedback", json={"case_id": first["case_id"], "outcome": "solved"}).json()["candidate_id"]
+    approved = client.post(f"/api/v1/knowledge/{candidate_id}/approve",
+                           json={"reviewer": "qa-lead", "intent": "no_signal"}).json()
+    assert approved["status"] == "approved" and approved["learned_example"] is True
+    db.expire_all()
+    assert services.classifier.classify(db, question).intent == "no_signal"  # learned
+    again = resolve(client, f"{session_id}-again", question)
+    assert again["analysis"]["intent"] == "no_signal"
+    first_article = next(c for c in again["resolution"]["steps"][0]["citations"] if c.startswith("KB-"))
+    by_id = {s["source_id"]: s for s in again["retrieval"]["sources"]}
+    assert by_id[first_article]["intent"] == "no_signal"  # answered from a no-signal article (KB-005 or the approved one)

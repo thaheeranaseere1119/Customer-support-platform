@@ -101,14 +101,15 @@ class RAGService:
 
     # ------------------------------------------------------------- selection
     def select_sources(self, mode: str, sources: list[ScoredSource], intent: str,
-                       trusted_intent: str | None = None, general_min_semantic: float = 0.0) -> list[ScoredSource]:
+                       trusted_intent: str | None = None, general_min_semantic: float = 0.0,
+                       article_min_semantic: float | None = None) -> list[ScoredSource]:
         s = self.settings
         if not sources:
             return []
         if trusted_intent:
             # The issue type is clear: answer from its own help article(s), backed by its resolved tickets.
-            own = [x for x in sources if x.intent == trusted_intent and not is_general(x)
-                   and x.semantic_score >= s.trusted_article_min_semantic]
+            floor = s.trusted_article_min_semantic if article_min_semantic is None else article_min_semantic
+            own = [x for x in sources if x.intent == trusted_intent and not is_general(x) and x.semantic_score >= floor]
             articles = [x for x in own if x.source_type == "knowledge_base"]
             if articles:
                 return (articles + [x for x in own if x.source_type != "knowledge_base"])[:4]

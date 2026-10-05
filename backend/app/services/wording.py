@@ -144,3 +144,20 @@ def customer_version(text: str) -> str:
     if not step.endswith((".", "!", "?")):
         step += "."
     return f"{step} {HAND_OVER}" if escalates else step
+
+
+# Internal wording customers must never see, and signs of a broken step.
+CUSTOMER_JARGON = re.compile(r"\b(the customer|approved|escalat\w*|route the|routed|ONT|agent follow-up)\b", re.I)
+
+
+def customer_wording_issues(text: str) -> list[str]:
+    """Problems with a customer-facing step: agent jargon, past-tense ticket notes or fragments."""
+    issues = []
+    if CUSTOMER_JARGON.search(text):
+        issues.append("agent jargon")
+    first = text.split()[0].lower().strip(",.") if text.split() else ""
+    if first in PAST_TO_PRESENT:
+        issues.append("past-tense note")
+    if len(text.split()) < 3 or re.search(r"\b(for|and|the|of)\.$", text) or _bare_condition(text.rstrip(".")):
+        issues.append("fragment")
+    return issues

@@ -57,6 +57,51 @@ def contains_phrase(tokens: list[str], phrase_tokens: list[str]) -> bool:
     return any(tokens[i : i + n] == phrase_tokens for i in range(len(tokens) - n + 1))
 
 
+def match_stem(token: str) -> str:
+    """Stem for keyword matching: like stem() but also aligns 'swapped'/'swap', 'dropping'/'drop', 'moved'/'move'.
+
+    Kept separate from stem() so search scoring and stored embeddings are unaffected.
+    """
+    base = stem(token)
+    if base != token and len(base) > 3 and base[-1] == base[-2] and base[-1] not in "aeiouls":
+        base = base[:-1]  # swapp -> swap, dropp -> drop
+    if len(base) >= 4 and base.endswith("e"):
+        base = base[:-1]  # move -> mov, so it meets moved -> mov
+    return base
+
+
+def one_edit_apart(a: str, b: str) -> bool:
+    """True when b is a with one letter changed, added, removed, or two neighbouring letters swapped."""
+    if a == b or abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):
+        diffs = [i for i in range(len(a)) if a[i] != b[i]]
+        return len(diffs) == 1 or (len(diffs) == 2 and diffs[1] == diffs[0] + 1
+                                   and a[diffs[0]] == b[diffs[1]] and a[diffs[1]] == b[diffs[0]])
+    short, long_ = (a, b) if len(a) < len(b) else (b, a)
+    i = 0
+    while i < len(short) and short[i] == long_[i]:
+        i += 1
+    return short[i:] == long_[i + 1:]
+
+
+def contains_in_order(tokens: list[str], phrase_tokens: list[str], max_gap: int = 2) -> bool:
+    """The phrase's words appear in order with at most `max_gap` other words between consecutive ones."""
+    for start, token in enumerate(tokens):
+        if token != phrase_tokens[0]:
+            continue
+        pos, ok = start, True
+        for wanted in phrase_tokens[1:]:
+            window = tokens[pos + 1: pos + 2 + max_gap]
+            if wanted not in window:
+                ok = False
+                break
+            pos = pos + 1 + window.index(wanted)
+        if ok:
+            return True
+    return False
+
+
 def strip_synthetic_tag(text: str) -> str:
     return SYNTHETIC_TAG_RE.sub("", text or "").strip()
 

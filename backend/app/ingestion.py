@@ -43,6 +43,34 @@ def _split(value: str) -> list[str]:
     return [v.strip() for v in (value or "").split("|") if v.strip()]
 
 
+# Too general: they matched unrelated questions ("not active" pulled SIM questions into service activation;
+# "your network" and "arrived in" shrink to one common word once stop-words are dropped).
+RETIRED_KEYWORDS = {"on and off", "off and on", "not active", "not activated", "data plans", "your network", "arrived in"}
+
+
+def sync_intent_keywords(db: Session) -> int:
+    """Add new keywords and example complaints from intent_taxonomy.csv to issue types already in the database.
+
+    Additions only, except seed keywords that were withdrawn from the file (RETIRED_KEYWORDS) are removed."""
+    _, rows = read_csv_rows(DATA_DIR / "intent_taxonomy.csv")
+    changed = 0
+    for row in rows:
+        intent = db.scalar(select(IntentTaxonomy).where(IntentTaxonomy.name == row["name"]))
+        if intent is None:
+            continue
+        keywords = [k for k in (intent.keywords or []) if k not in RETIRED_KEYWORDS]
+        keywords += [k for k in _split(row["keywords"]) if k not in keywords]
+        examples = list(intent.example_complaints or [])
+        examples += [e for e in _split(row["example_complaints"]) if e not in examples]
+        if keywords != (intent.keywords or []) or examples != (intent.example_complaints or []):
+            intent.keywords, intent.example_complaints = keywords, examples
+            changed += 1
+    if changed:
+        from app.services.taxonomy import taxonomy_service
+        taxonomy_service.invalidate()
+    return changed
+
+
 def sync_products(db: Session) -> int:
     """Insert missing products and add new keywords from products.csv to existing ones (keywords are only added)."""
     created = 0

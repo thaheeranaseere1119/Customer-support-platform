@@ -83,10 +83,11 @@ def bootstrap(role: str) -> None:
         except Exception:
             logger.exception("Automatic seeding failed; run scripts/ingest_data.py manually")
     try:  # existing databases pick up new product keywords from data/products.csv
-        from app.ingestion import sync_products
+        from app.ingestion import sync_intent_keywords, sync_products
 
         with session_scope() as db:
             sync_products(db)
+            sync_intent_keywords(db)
     except Exception:
         logger.exception("Product keyword sync failed")
     try:  # existing databases pick up seed article updates (customer wording) from data/knowledge_base.csv

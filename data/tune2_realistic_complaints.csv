@@ -1,0 +1,56 @@
+complaint,expected_intent,expected_articles
+my wifi router keeps losing the internet connection,broadband_disconnects,KB-010|KB-031
+internet cuts in and out while I'm gaming,broadband_disconnects,KB-010|KB-031
+"my broadband isn't working, nothing connects",broadband_no_internet,KB-011
+web pages crawl on my home broadband,broadband_slow,KB-009
+my broadband is much slower than advertised,broadband_slow,KB-009
+wifi keeps saying incorrect password,wifi_not_working,KB-012|KB-033
+my tablet won't pick up the wifi,wifi_not_working,KB-012|KB-033
+power cycled the router and it still doesn't work,router_restart_issue,KB-013
+router keeps rebooting on its own every few minutes,router_restart_issue,KB-013
+can't use whatsapp unless I'm on wifi,mobile_data_not_working,KB-001
+mobile data on but no internet on my phone,mobile_data_not_working,KB-001
+4g is really sluggish on my phone,mobile_data_slow,KB-002
+my phone internet takes ages to load anything,mobile_data_slow,KB-002
+my phone shows SOS only,no_signal,KB-005
+I keep losing reception on my mobile,no_signal,KB-005
+"my phone is stuck on 4G, where is 5G",5g_not_available,KB-008|KB-036
+5G network not appearing on my iphone,5g_not_available,KB-008|KB-036
+the call drops whenever I walk into the kitchen,call_drops,KB-003
+my calls end on their own after a while,call_drops,KB-003
+there's a horrible echo when I talk on the phone,call_quality,KB-004
+callers sound muffled and distorted,call_quality,KB-004
+one time passcodes aren't reaching my phone,sms_not_received,KB-006
+I can't receive any texts,sms_not_received,KB-006
+sim card not detected after phone update,sim_not_detected,KB-028
+when will my new sim start working,sim_activation,KB-026
+"my sim still has no service, it's new",sim_activation,KB-026
+travelling in Italy and I have no signal,roaming_not_working,KB-007|KB-035
+my phone doesn't work since I flew to Canada,roaming_not_working,KB-007|KB-035
+I think my bill has a mistake on it,billing_dispute,KB-019|KB-032
+this month's invoice is far too high and I want it checked,billing_dispute,KB-019|KB-032
+there's a fee on my bill I never agreed to,unexpected_charge,KB-020
+why is there a premium service charge on my bill,unexpected_charge,KB-020
+my direct debit failed this month,payment_failed,KB-021
+the app won't accept my card for the bill,payment_failed,KB-021
+refund still not in my bank account,refund_status,KB-022
+paid for a top up but I didn't get the data,recharge_issue,KB-025
+my prepaid recharge failed but money was taken,recharge_issue,KB-025
+can I go to an unlimited plan,plan_change,KB-023
+I want to lower my monthly plan,plan_change,KB-023
+do you have any family plans,plan_information,KB-024
+how much is your cheapest plan,plan_information,KB-024
+my account login isn't working,account_login,KB-016
+the website says my username is not recognised,account_login,KB-016
+I got an email about a password change I didn't make,account_security,KB-029|KB-034
+someone ported my number without asking me,account_security,KB-029|KB-034
+I need a new password for my account,password_reset,KB-017
+password reset page shows an error,password_reset,KB-017
+I moved house and need to update my address,profile_update,KB-018
+please change the name on my account,profile_update,KB-018
+my tv service hasn't been switched on yet,service_activation,KB-015
+the new line I ordered isn't active,service_activation,KB-015
+I'm still waiting for my broadband to be connected,new_connection_status,KB-014
+is there an update on my fibre installation,new_connection_status,KB-014
+is something wrong with your network today,service_outage,KB-030
+"my whole neighbourhood lost signal, outage?",service_outage,KB-030

@@ -1,0 +1,64 @@
+complaint,expected_intent,expected_articles
+wifi keeps cutting out every night around 9,broadband_disconnects,KB-010|KB-031
+"my internet disconnects like 5 times a day, so annoying",broadband_disconnects,KB-010|KB-031
+broadband keeps dropping when I'm on zoom calls,broadband_disconnects,KB-010|KB-031
+router lights are on but no internet at all,broadband_no_internet,KB-011
+no internet since this morning on all devices,broadband_no_internet,KB-011
+"connected to the wifi but nothing loads, it says no internet",broadband_no_internet,KB-011
+internet is super slow in the evenings,broadband_slow,KB-009
+my fibre speed is way below what I pay for,broadband_slow,KB-009
+"netflix keeps buffering, home internet speed is terrible",broadband_slow,KB-009
+my laptop can't find the wifi network anymore,wifi_not_working,KB-012|KB-033
+wifi doesn't work in the bedroom but is fine near the router,wifi_not_working,KB-012|KB-033
+restarted the router like 3 times and it's still not working,router_restart_issue,KB-013
+rebooted the modem and nothing changed,router_restart_issue,KB-013
+mobile data not working even with full bars,mobile_data_not_working,KB-001
+4g is on but apps wont load at all,mobile_data_not_working,KB-001
+"my mobile data is crawling, pages take forever",mobile_data_slow,KB-002
+data is super slow in the city centre,mobile_data_slow,KB-002
+phone says no service at home,no_signal,KB-005
+zero bars in my area since yesterday,no_signal,KB-005
+my new phone doesnt show 5G,5g_not_available,KB-008|KB-036
+"the 5G icon disappeared, only 4G now",5g_not_available,KB-008|KB-036
+calls cut off after a minute or two,call_drops,KB-003
+every call drops when I'm driving to work,call_drops,KB-003
+people say my voice sounds robotic on calls,call_quality,KB-004
+"can't hear the other person properly, crackling sound on calls",call_quality,KB-004
+not getting OTP texts from my bank,sms_not_received,KB-006
+"sms not coming through, verification codes are missing",sms_not_received,KB-006
+phone says no SIM card inserted,sim_not_detected,KB-028
+sim not recognised after I dropped my phone,sim_not_detected,KB-028
+got a new sim yesterday but it's still not active,sim_activation,KB-026
+how do I activate my new sim card,sim_activation,KB-026
+"lost my sim, I need a new one",sim_replacement,KB-027
+"my sim card is damaged, can I get a replacement",sim_replacement,KB-027
+landed in Dubai and my phone has no network,roaming_not_working,KB-007|KB-035
+roaming isn't working in Spain,roaming_not_working,KB-007|KB-035
+I've been charged twice for the same month,billing_dispute,KB-019|KB-032
+my bill is wrong and I want to dispute it,billing_dispute,KB-019|KB-032
+there's a charge on my bill I don't recognise,unexpected_charge,KB-020
+why was I charged extra this month,unexpected_charge,KB-020
+card payment for my bill keeps failing,payment_failed,KB-021
+tried to pay my bill but it says transaction failed,payment_failed,KB-021
+"where is my refund, it's been weeks",refund_status,KB-022
+still waiting for the refund of an overcharge,refund_status,KB-022
+recharged but my balance didn't update,recharge_issue,KB-025
+top up went through but no credit was added,recharge_issue,KB-025
+I want to upgrade to a bigger data plan,plan_change,KB-023
+how can I switch to a cheaper plan,plan_change,KB-023
+what plans do you have with unlimited data,plan_information,KB-024
+tell me about your postpaid plans,plan_information,KB-024
+"can't log into the app, it keeps saying invalid",account_login,KB-016
+unable to sign in to my account,account_login,KB-016
+someone changed my account details without my permission,account_security,KB-029|KB-034
+"I think my sim was swapped, my phone lost signal and I got strange texts",account_security,KB-029|KB-034
+"forgot my password, how do I reset it",password_reset,KB-017
+the password reset link is not working,password_reset,KB-017
+I need to change the email address on my account,profile_update,KB-018
+how do i update my address details,profile_update,KB-018
+my new broadband service isn't activated yet,service_activation,KB-015
+service is still not active after I paid,service_activation,KB-015
+when will my new fibre connection be installed,new_connection_status,KB-014
+what's the status of my new connection request,new_connection_status,KB-014
+is there an outage in my area? nothing works,service_outage,KB-030
+"the whole street has no internet, is there a network problem",service_outage,KB-030

@@ -27,7 +27,7 @@ from app.services.embeddings import EmbeddingService
 from app.services.emerging_issue import EmergingIssueService
 from app.services.evidence import EvidenceScoringService
 from app.services.knowledge_evolution import KnowledgeService, is_dataset_query
-from app.services.memory import MemoryService
+from app.services.memory import MemoryContext, MemoryService
 from app.services.rag import RAGService
 from app.services.reranker import RerankerService
 from app.services.retrieval import RetrievalFilters, RetrievalService, ScoredSource
@@ -172,11 +172,18 @@ class AdaptiveResolutionService:
             return analysis.intent
         return None
 
+    def _article_floor(self, analysis: Analysis) -> float:
+        """Keywords (or the LLM) naming the issue type already confirm the topic, so its article is used even when
+        a short question scores low on similarity; a meaning-only match still needs some similarity."""
+        if analysis.classification_method in ("keyword_rules", "llm", "memory_carryover"):
+            return 0.0
+        return self.settings.trusted_article_min_semantic
+
     def _anchor_articles(self, db: Session, sources: list[ScoredSource], intent: str, query: str, analysis: Analysis,
                          taxonomy, exclude_ids: set[str], qvec) -> list[ScoredSource]:
         """Put the help article(s) for a confidently classified issue type first; fetch them if search missed them."""
         s = self.s
-        floor = self.settings.trusted_article_min_semantic
+        floor = self._article_floor(analysis)
 
         def own(src: ScoredSource) -> bool:
             return (src.source_type == "knowledge_base" and src.intent == intent and not (src.extra or {}).get("general")
@@ -253,7 +260,8 @@ class AdaptiveResolutionService:
                     or taxonomy.top_category(x.category) == analysis.category]
 
         selected = s.rag.select_sources(mode, fitting(answer_order), analysis.intent, trusted_intent=trusted,
-                                        general_min_semantic=general_floor)
+                                        general_min_semantic=general_floor,
+                                        article_min_semantic=self._article_floor(analysis))
         if not selected and mode != "known":
             # No issue-specific evidence qualifies: look up the closest general checklist so the
             # customer still receives best-suitable, cited guidance (labelled as general).
@@ -296,6 +304,16 @@ class AdaptiveResolutionService:
 
         return {"mode": mode, "assessment": assessment, "sources": sources, "outcome": outcome,
                 "rerank_method": rerank_method, "answer": answer, "qvec": qvec}
+
+    def answer_only(self, db: Session, complaint: str) -> tuple[Analysis, dict]:
+        """The production answer path (classification, retrieval, ranking, generation) for one complaint, with
+        no conversation, case or memory saved. Used by the offline evaluation so it scores what customers get."""
+        analysis = self.s.classifier.classify(db, complaint)
+        run = self._run(db, request_id="evaluation", session=None, complaint=complaint, analysis=analysis,
+                        effective_query=complaint, guided_category=None, attempt_number=1, exclude_ids=set(),
+                        previous_steps=[], additional_info=None, tracker=StageTracker(None),
+                        memory_context=MemoryContext("evaluation", {}), widen=False)
+        return analysis, run
 
     # ============================================================ responses
     def _response(self, *, request_id: str, case: SupportCase, attempt: ResolutionAttempt, analysis: dict, run: dict,

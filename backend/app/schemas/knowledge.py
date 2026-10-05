@@ -74,6 +74,7 @@ class ReviewResult(BaseModel):
     index_version: int | None = None
     dataset_record_id: str | None = None
     updated_article: KnowledgeArticleOut | None = None  # existing article that gained the customer's wording
+    learned_example: bool = False  # the customer's wording became an example the classifier recognises
 
 
 class CandidateOut(BaseModel):

@@ -1,0 +1,65 @@
+complaint,expected_intent,expected_articles
+my home internet goes off and on all evening,broadband_disconnects,KB-010|KB-031
+fibre connection keeps dropping out every hour,broadband_disconnects,KB-010|KB-031
+"broadband is down completely, can't get online",broadband_no_internet,KB-011
+the router is connected but there's no internet on any device,broadband_no_internet,KB-011
+download speeds at home are really poor lately,broadband_slow,KB-009
+internet is painfully slow when I work from home,broadband_slow,KB-009
+I'm only getting a fraction of the speed I'm paying for,broadband_slow,KB-009
+my phone won't connect to the home wifi,wifi_not_working,KB-012|KB-033
+wifi network has vanished from my devices,wifi_not_working,KB-012|KB-033
+wifi only works when I sit right next to the router,wifi_not_working,KB-012|KB-033
+"turned the router off and on again, still no luck",router_restart_issue,KB-013
+rebooting the router didn't help at all,router_restart_issue,KB-013
+"data isn't working on my phone, only wifi works",mobile_data_not_working,KB-001
+can't browse on 4G even though I have signal,mobile_data_not_working,KB-001
+my 4G is unbearably slow today,mobile_data_slow,KB-002
+mobile internet is slow as a snail,mobile_data_slow,KB-002
+no bars on my phone at all,no_signal,KB-005
+my mobile keeps showing 'no service',no_signal,KB-005
+phone has no network coverage in my house,no_signal,KB-005
+why can't I get 5G on my phone,5g_not_available,KB-008|KB-036
+5G not showing even though I'm in a 5G area,5g_not_available,KB-008|KB-036
+my calls keep getting disconnected,call_drops,KB-003
+phone calls hang up by themselves,call_drops,KB-003
+the line is crackly and people can't hear me,call_quality,KB-004
+voice keeps breaking up during phone calls,call_quality,KB-004
+I'm not receiving text messages,sms_not_received,KB-006
+verification code SMS never arrives,sms_not_received,KB-006
+my phone can't read the sim card,sim_not_detected,KB-028
+it says invalid sim on my phone,sim_not_detected,KB-028
+new sim card isn't working yet,sim_activation,KB-026
+please activate the sim I just received,sim_activation,KB-026
+my sim is broken and I need a replacement,sim_replacement,KB-027
+"can I get a new sim, mine was stolen",sim_replacement,KB-027
+I'm abroad and can't make calls,roaming_not_working,KB-007|KB-035
+just arrived in Thailand and my phone won't connect,roaming_not_working,KB-007|KB-035
+"my bill is way higher than it should be, it's wrong",billing_dispute,KB-019|KB-032
+I was billed twice for one month,billing_dispute,KB-019|KB-032
+what's this extra charge on my invoice,unexpected_charge,KB-020
+I have a mystery charge on my bill,unexpected_charge,KB-020
+my bill payment got declined,payment_failed,KB-021
+online payment didn't go through,payment_failed,KB-021
+when will I get my money back,refund_status,KB-022
+has my refund been processed yet,refund_status,KB-022
+recharge done but data not credited,recharge_issue,KB-025
+I topped up but my balance is still zero,recharge_issue,KB-025
+I'd like to move to a different plan,plan_change,KB-023
+downgrade my plan to the basic one please,plan_change,KB-023
+which plans include international calls,plan_information,KB-024
+what are the prices of your data plans,plan_information,KB-024
+the app won't let me log in,account_login,KB-016
+login keeps failing on the website,account_login,KB-016
+"someone logged into my account, I didn't do it",account_security,KB-029|KB-034
+I got a text that my sim is being moved to another phone,account_security,KB-029|KB-034
+I think my account has been hacked,account_security,KB-029|KB-034
+I can't remember my password,password_reset,KB-017
+reset password email never came,password_reset,KB-017
+how do I change my phone number on my account,profile_update,KB-018
+need to update my billing address,profile_update,KB-018
+my service still hasn't been activated,service_activation,KB-015
+paid for the add-on but it isn't active,service_activation,KB-015
+any update on my broadband installation date,new_connection_status,KB-014
+when is the engineer coming to install my connection,new_connection_status,KB-014
+is the network down in my area?,service_outage,KB-030
+"my neighbours have no internet either, is there an outage",service_outage,KB-030

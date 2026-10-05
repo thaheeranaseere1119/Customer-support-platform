@@ -50,7 +50,7 @@ export function CandidatesPage() {
       const parts = [r.article ? `Published as ${r.article.article_id}`
         : r.updated_article ? `Added the customer's wording to ${r.updated_article.article_id} (v${r.updated_article.version})` : "Approved",
         r.dataset_record_id ? `added to the dataset as ${r.dataset_record_id}` : ""].filter(Boolean);
-      notify(`${parts.join(" and ")}. The assistant can use it now.`, "success"); done();
+      notify(`${parts.join(" and ")}. The assistant can use it now${r.learned_example ? " and will recognise this wording from now on" : ""}.`, "success"); done();
     },
     onError: (e: Error) => notify(e.message, "error"),
   });

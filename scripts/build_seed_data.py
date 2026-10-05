@@ -21,6 +21,7 @@ import random
 from pathlib import Path
 
 from seed_customer_steps import CUSTOMER_STEPS
+from seed_intent_examples import EXTRA_EXAMPLES
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
@@ -691,6 +692,31 @@ AUTHORED = [
 ]
 
 
+# Everyday phrasings found by the practice questions (data/tune*_realistic_complaints.csv); never taken from the
+# test questions (data/eval_realistic_complaints.csv), so the realistic evaluation stays an honest measure.
+EXTRA_KEYWORDS = {
+    'broadband_disconnects': ['dropping out'],
+    'broadband_slow': ['speed paying for', 'poor speed', 'download speed', 'crawl', 'web pages'],
+    'wifi_not_working': ['wifi only works', 'next to the router', 'wifi range'],
+    'mobile_data_not_working': ['cannot browse', 'unless on wifi', 'only on wifi'],
+    'no_signal': ['no bars', 'no coverage', 'network coverage'],
+    'call_quality': ['crackly', 'crackling', 'breaking up', 'cannot hear'],
+    'sms_not_received': ['never arrives', 'not receiving text', 'verification code', 'passcode', 'one time passcode'],
+    'roaming_not_working': ['another country', 'travelling in', 'flew to', 'on holiday', 'trip abroad'],
+    'plan_information': ['plan prices', 'prices of plans', 'plans include', 'what plans', 'how much', 'cheapest plan', 'family plan', 'plans do you have'],
+    'account_security': ['logged into my account', 'someone logged', 'sim being moved', 'moved to another phone'],
+    'profile_update': ['change phone number', 'update address', 'billing address'],
+    'service_outage': ['wrong with network', 'whole neighbourhood', 'neighbourhood'],
+    'sim_activation': ['new sim', 'sim is new'],
+    'unexpected_charge': ['fee', 'never agreed', 'premium service'],
+    'payment_failed': ['direct debit', 'accept my card', 'card for the bill'],
+    'plan_change': ['switch to', 'move to', 'go to an unlimited'],
+    'service_activation': ['switched on yet', 'not switched on', 'line not active', 'service not active'],
+    'mobile_data_slow': ['phone internet', 'crawl'],
+    'sim_replacement': ['stolen', 'mine was stolen'],
+}
+
+
 def write_csv(path: Path, header: list[str], rows: list[list]) -> None:
     with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
@@ -722,7 +748,8 @@ def build(dataset: Path) -> None:
     write_csv(DATA / "intent_taxonomy.csv",
               ["name", "display_name", "domain_category", "support_category", "default_product", "keywords",
                "example_complaints", "clarifying_question", "description"],
-              [[n, d, dc, sc, p, "|".join(k), "|".join(e), q, desc] for n, d, dc, sc, p, k, e, q, desc in INTENTS])
+              [[n, d, dc, sc, p, "|".join(k + [x for x in EXTRA_KEYWORDS.get(n, []) if x not in k]), "|".join(e + [x for x in EXTRA_EXAMPLES.get(n, []) if x not in e]), q, desc]
+               for n, d, dc, sc, p, k, e, q, desc in INTENTS])
 
     kb_rows = []
     for status, table in (("ACTIVE", KB), ("DRAFT", DRAFT_KB)):

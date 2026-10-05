@@ -10,6 +10,7 @@ Order of strategies:
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from dataclasses import asdict, dataclass, field
 
@@ -21,7 +22,13 @@ from app.services.entity_extractor import extract_entities
 from app.services.llm_provider import LLMProvider
 from app.services.sentiment import analyze_sentiment, estimate_severity
 from app.services.taxonomy import TaxonomySnapshot, taxonomy_service
-from app.utils.text import contains_phrase, tokenize
+from app.utils.text import (
+    contains_in_order,
+    contains_phrase,
+    match_stem,
+    one_edit_apart,
+    tokenize,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,23 +57,48 @@ class Analysis:
         return asdict(self)
 
 
+NAMED_AREA_BONUS = 2.0  # keyword points for matches in the product area the complaint names
+# Context decides over the symptom when both match: "travelling in Italy, no signal" is roaming, "whole
+# neighbourhood lost signal" is an outage, a new SIM without service needs activation.
+CONTEXT_WINS = {
+    "roaming_not_working": {"no_signal", "mobile_data_not_working", "call_drops", "sms_not_received"},
+    "service_outage": {"no_signal", "broadband_no_internet", "mobile_data_not_working", "broadband_disconnects"},
+    "sim_activation": {"no_signal", "sim_not_detected"},
+    "sim_replacement": {"sim_activation", "sim_not_detected"},
+    "account_security": {"no_signal", "account_login", "password_reset", "profile_update", "sim_replacement"},
+}
+# A specific billing issue beats a general dispute that matched only on a catch-all word ("bill", "charged"),
+# but not a specific dispute phrase such as "charged twice".
+SPECIFIC_OVER_GENERAL = {"unexpected_charge": "billing_dispute", "payment_failed": "billing_dispute",
+                         "refund_status": "billing_dispute"}
+CATCH_ALL_SCORE = 1.0  # one single-word keyword match
+
+
 class ClassificationService:
     def __init__(self, embeddings: EmbeddingService, llm: LLMProvider):
         self.embeddings = embeddings
         self.llm = llm
         self._example_cache: tuple[tuple, list[str], np.ndarray] | None = None
+        self._vocab_cache: tuple[object, frozenset[str]] | None = None
         self._lock = threading.Lock()
 
     # ---------------------------------------------------------------- helpers
     def _rule_scores(self, text: str, taxonomy: TaxonomySnapshot) -> dict[str, float]:
-        tokens = tokenize(text)
+        """Keyword evidence per intent. Words are compared by stem ("swapped" ~ "swap"); a multi-word keyword also
+        counts, slightly less, when its words appear in order with up to two words between them
+        ("update my billing address" ~ "update address")."""
+        tokens = [match_stem(t) for t in tokenize(text)]
         scores: dict[str, float] = {}
         for intent in taxonomy.intents.values():
             score = 0.0
             for phrase in intent.keywords:
-                ptoks = tokenize(phrase)
-                if ptoks and contains_phrase(tokens, ptoks):
+                ptoks = [match_stem(t) for t in tokenize(phrase)]
+                if not ptoks:
+                    continue
+                if contains_phrase(tokens, ptoks):
                     score += len(ptoks)
+                elif len(ptoks) > 1 and contains_in_order(tokens, ptoks, max_gap=2):
+                    score += len(ptoks) - 0.5
             if score:
                 scores[intent.name] = score
         return scores
@@ -115,6 +147,35 @@ class ClassificationService:
                 return default or best or "unknown"
         return best or "unknown"
 
+    def _vocabulary(self, taxonomy: TaxonomySnapshot) -> frozenset[str]:
+        """Words the classifier knows: issue-type keywords and examples, and product keywords."""
+        if self._vocab_cache and self._vocab_cache[0] == taxonomy.version:
+            return self._vocab_cache[1]
+        words: set[str] = set()
+        for intent in taxonomy.intents.values():
+            for phrase in (*intent.keywords, *intent.examples, intent.display_name, intent.description):
+                words.update(tokenize(phrase, keep_stopwords=True))
+        for _, _, keyword_lists in taxonomy.products:
+            for tokens in keyword_lists:
+                words.update(tokens)
+        vocabulary = frozenset(w for w in words if w.isalpha())
+        self._vocab_cache = (taxonomy.version, vocabulary)
+        return vocabulary
+
+    def _correct_typos(self, text: str, taxonomy: TaxonomySnapshot) -> str:
+        """Replace an unknown word of 5+ letters with the one known word a single edit away (if exactly one)."""
+        vocabulary = self._vocabulary(taxonomy)
+
+        def fix(match: re.Match) -> str:
+            word = match.group(0)
+            lower = word.lower()
+            if len(lower) < 5 or lower in vocabulary:
+                return word
+            close = [v for v in vocabulary if abs(len(v) - len(lower)) <= 1 and len(v) >= 5 and one_edit_apart(lower, v)]
+            return close[0] if len(close) == 1 else word
+
+        return re.sub(r"[A-Za-z]+", fix, text)
+
     def _named_area(self, text: str, taxonomy: TaxonomySnapshot) -> str | None:
         """Top-level category of the product the complaint names explicitly, if any."""
         product = self.detect_product(text, taxonomy, None)
@@ -143,6 +204,7 @@ class ClassificationService:
     # ------------------------------------------------------------------- main
     def classify(self, db: Session, text: str, guided_category: str | None = None) -> Analysis:
         taxonomy = taxonomy_service.get(db)
+        original, text = text, self._correct_typos(text, taxonomy)  # "disconnceting" -> "disconnecting"
         rules = self._rule_scores(text, taxonomy)
         if guided_category:
             allowed = taxonomy.categories_under(guided_category)
@@ -157,8 +219,23 @@ class ClassificationService:
         if llm_result is not None:
             intent, confidence = llm_result
             method = "llm"
+        base = dict(rules)  # keyword points before any area bonus or override
+        named = self._named_area(text, taxonomy)
+        in_named_area = {n for n in rules if named and taxonomy.top_category(taxonomy.intents[n].support_category) == named}
+        if named and rules:
+            # "my calls keep getting disconnected" names calls: a match about calls outweighs "disconnect" on
+            # broadband, while a clearly stronger match elsewhere ("update my billing address") still wins.
+            rules = {n: v + (NAMED_AREA_BONUS if taxonomy.top_category(taxonomy.intents[n].support_category) == named
+                             else 0.0) for n, v in rules.items()}
+        for context, symptoms in CONTEXT_WINS.items():
+            if context in rules and any(g in rules for g in symptoms):
+                rules[context] = max(rules.values()) + 0.5
+        for specific, general in SPECIFIC_OVER_GENERAL.items():
+            if specific in rules and general in rules and base.get(general, 0) <= CATCH_ALL_SCORE:
+                rules[specific] = max(rules.values()) + 0.5
         if method == "none" and rules:
-            rule_intent, rule_score = max(rules.items(), key=lambda kv: (kv[1], embedding.get(kv[0], 0.0)))
+            rule_intent, rule_score = max(rules.items(),  # a tie goes to the area the customer named
+                                          key=lambda kv: (kv[1], kv[0] in in_named_area, embedding.get(kv[0], 0.0)))
             emb_intent, emb_score = max(embedding.items(), key=lambda kv: kv[1]) if embedding else (None, 0.0)
             if rule_score <= 1.5 and emb_intent and emb_intent != rule_intent and emb_score >= threshold + 0.08:
                 intent, confidence, method = emb_intent, min(0.9, emb_score), "embedding_override"
@@ -196,6 +273,7 @@ class ClassificationService:
             display = "Unknown / New Issue"
             confidence = 0.0
             method = method if method == "llm" else "no_match"
+        text = original  # sentiment, severity and details are read from the customer's own words
         sentiment = analyze_sentiment(text)
         severity = estimate_severity(text, sentiment, intent, domain)
         return Analysis(
