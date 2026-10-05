@@ -6,22 +6,28 @@ export interface ParsedArticle {
 }
 
 /**
- * Splits a knowledge-base article into the parts customers should see. "Escalate when",
- * "Caution" and "Source note" lines are internal guidance for agents and are left out.
+ * Splits a knowledge-base article into the parts customers should see: the "Customer steps" when the article has
+ * them (plain wording for customers), otherwise the resolution steps. "Also asked as", "Escalate when", "Caution"
+ * and "Source note" lines are internal and left out.
  */
 export function parseArticle(content: string): ParsedArticle {
   const parsed: ParsedArticle = { symptoms: "", steps: [] };
+  const agentSteps: string[] = [];
+  const customerSteps: string[] = [];
+  let sectionName = "resolution steps";
   for (const raw of content.split("\n")) {
     const line = raw.trim();
     if (!line) continue;
-    const section = line.match(/^(Symptoms|Resolution steps|Escalate when|Caution|Source note):\s*(.*)$/i);
+    const section = line.match(/^(Symptoms|Also asked as|Resolution steps|Customer steps|Escalate when|Caution|Source note):\s*(.*)$/i);
     if (section) {
-      if (section[1].toLowerCase() === "symptoms") parsed.symptoms = section[2];
+      sectionName = section[1].toLowerCase();
+      if (sectionName === "symptoms") parsed.symptoms = section[2];
       continue;
     }
     const step = line.match(/^\d+[.)]\s+(.*)$/);
-    if (step) parsed.steps.push(step[1]);
+    if (step) (sectionName === "customer steps" ? customerSteps : agentSteps).push(step[1]);
   }
+  parsed.steps = customerSteps.length ? customerSteps : agentSteps;
   return parsed;
 }
 

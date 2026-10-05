@@ -20,6 +20,8 @@ import json
 import random
 from pathlib import Path
 
+from seed_customer_steps import CUSTOMER_STEPS
+
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 
@@ -43,11 +45,11 @@ SUPPORT_CATEGORIES = [
 
 PRODUCTS = [
     # name, support_category, keywords
-    ("broadband", "Broadband", ["broadband", "fibre", "fiber", "home internet", "internet connection"]),
+    ("broadband", "Broadband", ["broadband", "fibre", "fiber", "home internet", "internet connection", "internet"]),
     ("router", "Wi-Fi", ["router", "modem"]),
     ("ONT", "Broadband", ["ont", "optical terminal", "fibre box"]),
     ("Wi-Fi", "Wi-Fi", ["wifi", "wireless network"]),
-    ("mobile data", "Mobile", ["mobile data", "mobile internet", "data connection", "4g", "lte", "cellular data"]),
+    ("mobile data", "Mobile", ["mobile data", "mobile internet", "data connection", "4g", "lte", "cellular data", "data"]),
     ("mobile network", "Mobile", ["signal", "network coverage", "coverage", "network"]),
     ("5G service", "5G", ["5g"]),
     ("voice service", "Calls", ["call", "calls", "calling", "voice call"]),
@@ -697,9 +699,14 @@ def write_csv(path: Path, header: list[str], rows: list[list]) -> None:
     print(f"  wrote {path.relative_to(ROOT)} ({len(rows)} rows)")
 
 
-def kb_content(symptoms: str, steps: list[str], escalate: str, caution: str) -> str:
+def kb_content(article_id: str, symptoms: str, steps: list[str], escalate: str, caution: str) -> str:
+    """Agent steps, then the same steps worded for customers (one-to-one; see seed_customer_steps.py)."""
+    customer = CUSTOMER_STEPS[article_id]
+    if len(customer) != len(steps):
+        raise ValueError(f"{article_id}: {len(steps)} agent steps but {len(customer)} customer steps")
     lines = [f"Symptoms: {symptoms}", "Resolution steps:"]
     lines += [f"{i}. {s}" for i, s in enumerate(steps, 1)]
+    lines += ["Customer steps:"] + [f"{i}. {s}" for i, s in enumerate(customer, 1)]
     lines += [f"Escalate when: {escalate}", f"Caution: {caution}", f"Source note: {SYNTHETIC_NOTE}"]
     return "\n".join(lines)
 
@@ -720,10 +727,10 @@ def build(dataset: Path) -> None:
     kb_rows = []
     for status, table in (("ACTIVE", KB), ("DRAFT", DRAFT_KB)):
         for aid, (intent, title, product, symptoms, steps, esc, caution) in sorted(table.items()):
-            kb_rows.append([aid, title, kb_content(symptoms, steps, esc, caution), intent_map[intent][3], intent, product,
+            kb_rows.append([aid, title, kb_content(aid, symptoms, steps, esc, caution), intent_map[intent][3], intent, product,
                             1, status, "synthetic_demo_kb", "2026-01-01T00:00:00", "2026-01-01T00:00:00"])
     for aid, (category, title, product, symptoms, steps, esc, caution) in sorted(GENERAL_KB.items()):
-        kb_rows.append([aid, title, kb_content(symptoms, steps, esc, caution), category, "unknown", product,
+        kb_rows.append([aid, title, kb_content(aid, symptoms, steps, esc, caution), category, "unknown", product,
                         1, "ACTIVE", "synthetic_demo_kb_general", "2026-01-01T00:00:00", "2026-01-01T00:00:00"])
     kb_rows.sort(key=lambda r: r[0])
     write_csv(DATA / "knowledge_base.csv",

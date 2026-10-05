@@ -109,6 +109,7 @@ class StepOut(BaseModel):
     citations: list[str]
     kind: Literal["resolution", "information_gathering"]
     already_attempted: bool = False
+    customer_text: str | None = None  # the same step in plain words for customers ("" = agent-only, hidden)
 
 
 class ResolutionOut(BaseModel):

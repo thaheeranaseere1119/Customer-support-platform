@@ -6,6 +6,12 @@ Resolution steps:
 3. Check that the data balance or plan allowance is available through the approved account view.
 4. Restart the device and retry the data connection.
 5. Collect the device model, location and time of the failure and escalate if data remains unavailable.
+Customer steps:
+1. Make sure mobile data is turned on and airplane mode is off.
+2. Check that your phone shows signal bars.
+3. Check in your self-care account that you still have data left on your plan.
+4. Restart your phone and try mobile data again.
+5. If data still doesn't work, tell me your phone model, where you are and when it stopped, and our team will take it from there.
 Escalate when: Data remains unavailable after restart with network service present.
 Caution: Do not change APN or network settings that are not listed in this article.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Mobile,mobile_data_not_working,mobile data,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -14,6 +20,10 @@ Resolution steps:
 1. Check signal availability and whether the slowdown occurs consistently or only in certain places.
 2. Restart the device and retry the connection.
 3. Collect time and location details if the slowdown continues.
+Customer steps:
+1. Check your signal, and whether the slowdown happens everywhere or only in certain places.
+2. Restart your phone and try again.
+3. If it's still slow, note when and where it happens and let me know so our team can look into it.
 Escalate when: The slowdown continues across locations after a device restart.
 Caution: Do not quote or promise specific speeds.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Mobile,mobile_data_slow,mobile data,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -23,6 +33,11 @@ Resolution steps:
 2. Retry calls from another location if possible.
 3. Restart the device.
 4. Record the time and frequency of dropped calls for escalation if the issue continues.
+Customer steps:
+1. Check your signal strength where the calls drop.
+2. If you can, try calling from a different location.
+3. Restart your phone.
+4. If calls keep dropping, note when they drop and how often, and let me know so our team can investigate.
 Escalate when: Calls keep dropping after the device restart and in more than one location.
 Caution: Do not attribute drops to a network fault unless a confirmed outage exists.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Calls,call_drops,voice service,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -32,6 +47,11 @@ Resolution steps:
 2. Retry the call to confirm the problem repeats.
 3. Restart the device.
 4. Record whether incoming, outgoing, or both call directions are affected.
+Customer steps:
+1. Check your signal strength during the affected calls.
+2. Make another call to see if the problem happens again.
+3. Restart your phone.
+4. Let me know whether the problem affects calls you make, calls you receive, or both.
 Escalate when: Quality problems persist on calls in both directions after a restart.
 Caution: Do not ask the customer to change device hardware settings that are not listed here.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Calls,call_quality,voice service,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -41,6 +61,11 @@ Resolution steps:
 2. Confirm the SIM is seated correctly.
 3. Check whether network service returns after the restart.
 4. Escalate with location and device details if no signal persists.
+Customer steps:
+1. Restart your phone.
+2. Check that your SIM card is inserted properly.
+3. See whether the signal comes back after the restart.
+4. If there's still no signal, tell me where you are and your phone model, and our team will investigate.
 Escalate when: No signal persists after restart and SIM reseat.
 Caution: Do not confirm a mast or area outage unless it is listed in the approved service-status source.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Mobile,no_signal,mobile network,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -50,6 +75,11 @@ Resolution steps:
 2. Verify that network service is available.
 3. Send a test message.
 4. Record whether incoming or outgoing SMS is affected.
+Customer steps:
+1. Restart your phone.
+2. Check that your phone has signal.
+3. Send a test message to another number.
+4. Let me know whether the problem is with messages you receive, messages you send, or both.
 Escalate when: Messages still fail after restart while network service is available.
 Caution: Never ask the customer to share an OTP with the agent.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",SMS,sms_not_received,SMS service,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -59,6 +89,11 @@ Resolution steps:
 2. Restart the device.
 3. Retry network registration.
 4. Escalate with the roaming location and service details if unsuccessful.
+Customer steps:
+1. Make sure roaming is turned on for your line.
+2. Restart your phone.
+3. Let your phone search for and connect to a local network again.
+4. If roaming still doesn't work, tell me which country you're in and our team will look into it.
 Escalate when: Roaming remains unavailable after registration is retried.
 Caution: Do not quote roaming prices; refer to the approved tariff information.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Roaming,roaming_not_working,roaming,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -68,6 +103,11 @@ Resolution steps:
 2. Check the selected network mode on the device.
 3. Restart the device.
 4. Record the observed network mode if 5G remains unavailable.
+Customer steps:
+1. Check that both your phone and your plan support 5G.
+2. Check the network mode selected in your phone's settings.
+3. Restart your phone.
+4. If 5G still doesn't appear, let me know which network mode your phone shows.
 Escalate when: 5G remains unavailable with the correct network mode selected.
 Caution: Do not promise 5G coverage at a specific address.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",5G,5g_not_available,5G service,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -77,6 +117,11 @@ Resolution steps:
 2. Test the connection again.
 3. Compare performance across devices where possible.
 4. Record the time pattern and connection details if the slowdown persists.
+Customer steps:
+1. Restart your router (and your fibre box, if you have one).
+2. Test your connection again.
+3. If you can, compare the speed on a few different devices.
+4. If it's still slow, note when it happens and let me know so our team can look into it.
 Escalate when: Slow speeds persist across devices after a restart.
 Caution: Do not promise a specific speed.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Broadband,broadband_slow,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -86,6 +131,11 @@ Resolution steps:
 2. Restart the equipment.
 3. Observe whether the connection drops again.
 4. Record the time pattern of the drops for escalation if intermittent drops continue.
+Customer steps:
+1. Check the status lights on your router and fibre box.
+2. Restart your router and fibre box.
+3. Watch whether the connection drops again.
+4. If the drops continue, note when they happen and let me know so our team can investigate.
 Escalate when: Intermittent drops continue after the equipment restart.
 Caution: Do not attribute drops to the customer's equipment without status evidence.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Broadband,broadband_disconnects,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -95,6 +145,11 @@ Resolution steps:
 2. Restart the router/ONT equipment.
 3. Retry internet access from a second device.
 4. Escalate with device and status-light details if service remains unavailable.
+Customer steps:
+1. Check the status lights on your router and fibre box, and make sure all cables are firmly connected.
+2. Restart your router and fibre box.
+3. Try going online from a second device.
+4. If there's still no internet, tell me what the status lights show and our team will take it from there.
 Escalate when: Service remains unavailable on all devices after the restart.
 Caution: Do not confirm an outage unless it is listed in the approved service-status source.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Internet,broadband_no_internet,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -104,6 +159,11 @@ Resolution steps:
 2. Restart the router.
 3. Retry from another device if available.
 4. Record whether the issue affects all devices.
+Customer steps:
+1. Make sure Wi-Fi is turned on on your device.
+2. Restart your router.
+3. If you can, try connecting from another device.
+4. Let me know whether the problem affects all your devices or just one.
 Escalate when: No device can connect after the router restart.
 Caution: Do not ask the customer to share their Wi-Fi password in chat.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Wi-Fi,wifi_not_working,Wi-Fi,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -113,6 +173,11 @@ Resolution steps:
 2. Check connection status and physical links.
 3. Retry the service.
 4. Escalate with the status indicators if the issue remains.
+Customer steps:
+1. Make sure your router and fibre box have fully finished restarting.
+2. Check the connection status and that all cables are firmly connected.
+3. Try using the service again.
+4. If it still isn't working, tell me what the status lights show and our team will investigate.
 Escalate when: The issue remains after a completed restart with physical links confirmed.
 Caution: Do not recommend a factory reset; it is not part of this procedure.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Wi-Fi,router_restart_issue,router,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -121,6 +186,10 @@ Resolution steps:
 1. Verify the request reference.
 2. Check the installation status through the approved support process.
 3. Route the request for agent follow-up if the status cannot be confirmed.
+Customer steps:
+1. Find the reference number for your connection request.
+2. Share it here so we can check your installation status.
+3. If the status can't be confirmed, one of our team will follow up with you.
 Escalate when: The installation status cannot be confirmed.
 Caution: Do not commit to an installation date that is not shown in the approved status.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Internet,new_connection_status,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -129,6 +198,10 @@ Resolution steps:
 1. Verify the activation request status.
 2. Confirm the required activation step has completed.
 3. Route the case for agent follow-up if the service remains inactive.
+Customer steps:
+1. Check the status of your activation request.
+2. Make sure any activation step you were asked to complete is done.
+3. If the service still isn't active, let me know and one of our team will follow up.
 Escalate when: The service remains inactive after the activation step is confirmed.
 Caution: Do not promise an activation time.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Internet,service_activation,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -137,6 +210,10 @@ Resolution steps:
 1. Verify the entered account identifier.
 2. Retry login.
 3. Use the approved account recovery process if access remains unavailable.
+Customer steps:
+1. Double-check the account ID you're signing in with.
+2. Try signing in again.
+3. If you still can't sign in, use the account recovery option on the sign-in page.
 Escalate when: Access remains unavailable after the recovery process.
 Caution: Never ask the customer for their password.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Account,account_login,customer account,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -145,6 +222,10 @@ Resolution steps:
 1. Use the approved password-reset flow.
 2. Complete the verification step.
 3. Escalate through account support if recovery cannot be completed.
+Customer steps:
+1. Use the password reset option on the sign-in page.
+2. Complete the verification step you're asked to do.
+3. If you can't complete the reset, let me know and our account team will help.
 Escalate when: The verification step cannot be completed.
 Caution: Never ask the customer to read out a verification code.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Account,password_reset,customer account,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -153,6 +234,10 @@ Resolution steps:
 1. Use the approved account-profile update flow.
 2. Verify the saved details.
 3. Route the request to an agent if the required field cannot be changed.
+Customer steps:
+1. Update your details in your account profile.
+2. Check that your changes have saved.
+3. If a detail can't be changed there, let me know and one of our team will update it for you.
 Escalate when: The required field cannot be changed through the flow.
 Caution: Do not change identity details without the approved verification.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Account,profile_update,customer account,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -162,6 +247,11 @@ Resolution steps:
 2. Identify the disputed line item.
 3. Record the billing period and the reason for the dispute.
 4. Submit the dispute through the approved billing process.
+Customer steps:
+1. Look through the details on your bill.
+2. Find the charge you want to dispute.
+3. Note the billing period and why you think the charge is wrong.
+4. Send us these details here to raise a dispute, and our billing team will review it.
 Escalate when: The dispute cannot be resolved by reviewing the bill details.
 Caution: Do not promise a refund or credit amount; outcomes depend on the billing review.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Billing,billing_dispute,mobile bill,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -170,6 +260,10 @@ Resolution steps:
 1. Review the bill line item and the billing period.
 2. Compare it with the account activity available to the customer.
 3. Route the charge for billing review if it remains unexplained.
+Customer steps:
+1. Find the charge on your bill and check which billing period it covers.
+2. Compare it with the activity shown in your account.
+3. If the charge still doesn't make sense, let me know and our billing team will review it.
 Escalate when: The charge remains unexplained after comparison with account activity.
 Caution: Do not state the cause of a charge without evidence from the bill.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Billing,unexpected_charge,mobile bill,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -179,6 +273,11 @@ Resolution steps:
 2. Check whether any amount was deducted for the failed attempt.
 3. Retry only through the approved payment flow if appropriate.
 4. Route the case to payment support if the transaction remains unsuccessful.
+Customer steps:
+1. Check the payment status in your account.
+2. Check whether any money was taken for the failed payment.
+3. If needed, try the payment again through your account.
+4. If the payment still fails, let me know and our payments team will look into it.
 Escalate when: The transaction remains unsuccessful or an amount was deducted without the bill being paid.
 Caution: Never ask for full card numbers or security codes in chat.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Billing,payment_failed,payment,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -187,6 +286,10 @@ Resolution steps:
 1. Verify the refund reference and the original transaction.
 2. Check the available refund status.
 3. Route the case to billing support if the status cannot be confirmed.
+Customer steps:
+1. Find your refund reference and the details of the original payment.
+2. Check the refund status in your account.
+3. If the status isn't clear, let me know and our billing team will check it.
 Escalate when: The refund status cannot be confirmed.
 Caution: Do not quote refund timelines; they are not part of this knowledge base.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Billing,refund_status,refund,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -195,6 +298,10 @@ Resolution steps:
 1. Verify the current plan and the requested plan.
 2. Confirm eligibility through the approved plan-change flow.
 3. Submit the change if eligible.
+Customer steps:
+1. Check your current plan and choose the plan you'd like to move to.
+2. Check in your account whether you can switch to that plan.
+3. If you're eligible, submit the plan change.
 Escalate when: Eligibility cannot be confirmed.
 Caution: Do not quote plan prices from memory.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Recharge,plan_change,mobile plan,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -202,6 +309,9 @@ KB-024,Providing plan information,"Symptoms: The customer asks about available p
 Resolution steps:
 1. Present the currently available plan information from the approved knowledge base.
 2. Ask the customer to select the plan they want to evaluate.
+Customer steps:
+1. I can share the details of the plans currently available.
+2. Tell me which plan you'd like to look at more closely.
 Escalate when: The requested plan information is not available in the approved source.
 Caution: Do not invent plan features or prices.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Recharge,plan_information,mobile plan,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -210,6 +320,10 @@ Resolution steps:
 1. Verify the recharge transaction status.
 2. Check whether the balance updated.
 3. Route the transaction for review if the recharge remains incomplete.
+Customer steps:
+1. Check the status of your recharge payment.
+2. Check whether your balance has updated.
+3. If the recharge still hasn't gone through, let me know and our team will review the payment.
 Escalate when: The recharge remains incomplete after the status check.
 Caution: Do not promise reversal of a deducted amount.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Recharge,recharge_issue,recharge plan,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -218,6 +332,10 @@ Resolution steps:
 1. Verify the SIM activation request.
 2. Complete the approved activation process.
 3. Restart the device after activation if required.
+Customer steps:
+1. Check that your SIM activation request has been submitted.
+2. Complete the activation steps you were given.
+3. Restart your phone after activation if you're asked to.
 Escalate when: The SIM does not activate after the approved process.
 Caution: Do not ask for SIM PUK codes in chat.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",SIM,sim_activation,SIM,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -225,6 +343,9 @@ KB-027,SIM or eSIM replacement,"Symptoms: The customer needs a replacement SIM o
 Resolution steps:
 1. Verify the account and replacement eligibility through the approved process.
 2. Create the replacement request if eligible.
+Customer steps:
+1. We'll first check that your account is eligible for a replacement SIM or eSIM.
+2. If it is, we'll create the replacement request for you.
 Escalate when: Eligibility cannot be verified.
 Caution: Replacement requests always require the approved identity verification.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",SIM,sim_replacement,eSIM,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -234,6 +355,11 @@ Resolution steps:
 2. Reseat the SIM if appropriate.
 3. Restart the device and test detection again.
 4. Escalate if the SIM remains undetected.
+Customer steps:
+1. Turn off your phone.
+2. If your phone has a removable SIM, take it out and put it back in carefully.
+3. Turn your phone back on and check whether the SIM is detected.
+4. If the SIM still isn't detected, let me know and our team will help.
 Escalate when: The SIM remains undetected after reseating.
 Caution: Do not ask the customer to cut or modify the SIM.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",SIM,sim_not_detected,SIM,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -242,6 +368,10 @@ Resolution steps:
 1. Do not disclose sensitive account information in chat.
 2. Use the approved account-security process to secure the account.
 3. Escalate suspicious activity for review.
+Customer steps:
+1. For your safety, please don't share passwords, PINs or codes in this chat.
+2. We'll secure your account using our account-security process.
+3. Tell us about any activity you don't recognise so our team can review it.
 Escalate when: Any suspicious activity is reported.
 Caution: Treat as critical; never disclose account data before verification.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Account,account_security,customer account,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -250,6 +380,10 @@ Resolution steps:
 1. Check the approved service-status source for the relevant area and service.
 2. Provide only confirmed outage information.
 3. Escalate if no confirmed outage explains the issue.
+Customer steps:
+1. We'll check for any reported outage on your service in your area.
+2. We'll only share outage information that has been confirmed.
+3. If there's no confirmed outage, our team will investigate further.
 Escalate when: No confirmed outage explains the issue.
 Caution: Never speculate about outage causes or restoration times.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Internet,service_outage,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -260,6 +394,12 @@ Resolution steps:
 3. Test whether a wired device drops at the same time as Wi-Fi devices.
 4. If the customer has already restarted the router, do not repeat the restart; move to the line test request.
 5. Request a line test through the approved support process and attach the recorded time pattern.
+Customer steps:
+1. Note the exact times the drops happen over a few days.
+2. Check whether the lights on your router or fibre box change when the connection drops.
+3. If you can, check whether a device connected by cable drops at the same time as your Wi-Fi devices.
+4. If you've already restarted your router, there's no need to do it again.
+5. Share the times you noted here, and our team will arrange a line test.
 Escalate when: Drops continue at a repeating time after the router restart, or the customer relies on the service for work.
 Caution: Do not promise compensation or a fix date.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Broadband,broadband_disconnects,broadband,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -269,6 +409,11 @@ Resolution steps:
 2. Check whether the two charges cover the same billing period.
 3. Record the reference of each transaction.
 4. Submit a duplicate-charge dispute through the approved billing process.
+Customer steps:
+1. Find both charges on your bill and note their dates and descriptions.
+2. Check whether the two charges are for the same billing period.
+3. Note the reference number of each payment.
+4. Send us these details here to raise a duplicate-charge dispute.
 Escalate when: Both charges cover the same period and the duplication is confirmed.
 Caution: Do not promise a refund amount or timeline.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Billing,billing_dispute,mobile bill,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -278,6 +423,11 @@ Resolution steps:
 2. Restart the router.
 3. Test with a second device in the same location.
 4. Record which rooms and devices are affected for escalation.
+Customer steps:
+1. Check whether the problem happens close to the router as well as further away.
+2. Restart your router.
+3. Try a second device in the same spot.
+4. Let me know which rooms and devices are affected so our team can look into it.
 Escalate when: Wi-Fi fails close to the router on several devices.
 Caution: Do not recommend third-party equipment.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Wi-Fi,wifi_not_working,Wi-Fi,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -286,6 +436,10 @@ Resolution steps:
 1. Treat the case as critical and do not disclose any account information in chat.
 2. Use the approved account-security process to secure the account.
 3. Escalate immediately to the security team with the time the customer noticed the issue.
+Customer steps:
+1. For your safety, we won't discuss account details in chat, and please don't share any.
+2. We'll secure your account straight away using our account-security process.
+3. Our security team is being alerted now. Please tell us when you first noticed the problem.
 Escalate when: Always escalate.
 Caution: Never reset credentials or move the number without the approved verification.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Account,account_security,customer account,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -295,6 +449,11 @@ Resolution steps:
 2. Check that data roaming is switched on in the device settings if data is needed.
 3. Restart the device to trigger network registration.
 4. Record the country and the network name shown on the device for escalation.
+Customer steps:
+1. Make sure roaming is turned on for your line, before or after you travel.
+2. If you need mobile data abroad, turn on data roaming in your phone's settings.
+3. Restart your phone so it connects to a local network.
+4. If it still doesn't connect, tell me which country you're in and the network name your phone shows.
 Escalate when: Registration still fails after the restart.
 Caution: Do not quote roaming charges.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Roaming,roaming_not_working,roaming,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -304,6 +463,11 @@ Resolution steps:
 2. Confirm the plan includes 5G service.
 3. Check the preferred network mode includes 5G.
 4. Record the location and network mode shown if 5G is still not available.
+Customer steps:
+1. Check that your phone model supports 5G.
+2. Check that your plan includes 5G.
+3. Make sure your phone's preferred network mode includes 5G.
+4. If 5G still doesn't show, let me know where you are and the network mode your phone shows.
 Escalate when: 5G is not available with a compatible device, plan and network mode.
 Caution: Do not promise 5G coverage.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",5G,5g_not_available,5G service,1,ACTIVE,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -314,6 +478,12 @@ Resolution steps:
 3. Confirm the customer's plan includes the feature using the approved plan information.
 4. Restart the device and test the feature again.
 5. Record the device model, software version and any message shown, then escalate if the feature still does not work.
+Customer steps:
+1. Check that your phone model and software version support the feature.
+2. Make sure the feature is turned on in your phone's settings.
+3. Check that your plan includes the feature.
+4. Restart your phone and try the feature again.
+5. If it still doesn't work, tell me your phone model, software version and any message you see.
 Escalate when: The feature still fails on a supported device with the plan confirmed.
 Caution: General guidance only, not a confirmed fix for this specific issue. Do not promise feature availability.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Mobile,unknown,mobile network,1,ACTIVE,synthetic_demo_kb_general,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -323,6 +493,11 @@ Resolution steps:
 2. Restart the router/ONT and the affected device.
 3. Check the feature's setting in the router or self-care account if one is provided.
 4. Record the device type, the time of the failure and any message shown, then escalate if it continues.
+Customer steps:
+1. Check whether the problem affects one device or every device on your home network.
+2. Restart your router (and fibre box, if you have one) and the affected device.
+3. Check the feature's setting in your router or self-care account, if it has one.
+4. If it still isn't working, tell me the device type, when it fails and any message you see.
 Escalate when: The feature still fails after the restart and settings check.
 Caution: General guidance only, not a confirmed fix. Do not recommend third-party equipment.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Internet,unknown,router,1,ACTIVE,synthetic_demo_kb_general,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -332,6 +507,11 @@ Resolution steps:
 2. Test with a different number or destination to see whether the issue is specific.
 3. Restart the device and test again.
 4. Record the numbers involved (masked), the times and any message heard, then escalate.
+Customer steps:
+1. Check whether the problem affects calls or messages you make, ones you receive, or both.
+2. Try a different number to see whether the problem only happens with one number.
+3. Restart your phone and try again.
+4. If it still isn't working, tell me roughly when it happens and any message you hear, and our team will investigate.
 Escalate when: The feature still fails after the test calls.
 Caution: General guidance only, not a confirmed fix. Never read out or store full customer numbers.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Calls,unknown,voice service,1,ACTIVE,synthetic_demo_kb_general,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -341,6 +521,11 @@ Resolution steps:
 2. Check that the line or eSIM profile is shown as active for the device.
 3. Restart both the device and any paired phone.
 4. Record the device model, the profile status and any message shown, then escalate if it remains unresolved.
+Customer steps:
+1. Check which device and which line or eSIM profile are affected.
+2. Make sure the line or eSIM profile shows as active on the device.
+3. Restart both the device and any phone it's paired with.
+4. If it still isn't working, tell me the device model, the profile status and any message you see.
 Escalate when: The line or profile is active but the device still cannot use it.
 Caution: General guidance only. eSIM or SIM changes always require the approved identity verification.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",SIM,unknown,SIM,1,ACTIVE,synthetic_demo_kb_general,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -350,6 +535,11 @@ Resolution steps:
 2. Review the item through the approved billing or account view.
 3. Explain only what the approved view shows.
 4. Route the case to billing or account support if the item cannot be explained.
+Customer steps:
+1. Tell me which bill, payment or account item you're asking about.
+2. We'll review it using your account records.
+3. We'll explain exactly what your account shows.
+4. If it can't be explained, our billing or account team will look into it.
 Escalate when: The item cannot be explained from the approved view.
 Caution: General guidance only. Do not quote prices, credits, refunds or timelines.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",Billing,unknown,mobile bill,1,ACTIVE,synthetic_demo_kb_general,2026-01-01T00:00:00,2026-01-01T00:00:00
@@ -358,6 +548,10 @@ Resolution steps:
 1. Verify the account through the approved identity process.
 2. Issue a new eSIM profile for the new device.
 3. Ask the customer to install the profile and restart the phone.
+Customer steps:
+1. We'll first verify your account.
+2. We'll issue a new eSIM profile for your new phone.
+3. Install the new profile on your phone, then restart it.
 Escalate when: The new profile does not install.
 Caution: Draft: not yet approved by a reviewer.
 Source note: SYNTHETIC / DEMO DATA - not real telecom operator data.",SIM,sim_replacement,eSIM,1,DRAFT,synthetic_demo_kb,2026-01-01T00:00:00,2026-01-01T00:00:00

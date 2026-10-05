@@ -50,6 +50,21 @@ describe("AssistantResolution audiences", () => {
     expect(screen.getByLabelText("Suggested solution").textContent).not.toMatch(/\b(couldn't|can't|haven't|not confirmed|unable|sorry)\b/i);
   });
 
+  it("customers read the plain customer wording; agent-only steps are left out", async () => {
+    const steps = [
+      { text: "Restart the router/ONT.", citations: ["KB-009"], kind: "resolution", already_attempted: false,
+        customer_text: "Restart your router (and your fibre box, if you have one)." },
+      { text: "Treat as critical.", citations: ["KB-009"], kind: "resolution", already_attempted: false, customer_text: "" },
+    ];
+    const worded = { ...caseDetail, attempts: [{ ...caseDetail.attempts[0], steps }] };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => jsonResponse(worded));
+    renderWithProviders(<AssistantResolution caseId={r.case_id} attempt={1} sessionId="s" audience="customer" interactive />);
+    expect(await screen.findByText("Restart your router (and your fibre box, if you have one).")).toBeInTheDocument();
+    expect(screen.queryByText("Restart the router/ONT.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Treat as critical.")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("listitem").filter((li) => li.closest(".cr-steps"))).toHaveLength(1);
+  });
+
   it("admins see the evidence details", async () => {
     mockCase();
     renderWithProviders(<AssistantResolution caseId={r.case_id} attempt={1} sessionId="s" audience="admin" interactive={false} />);

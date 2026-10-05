@@ -3,6 +3,7 @@ embed -> build index. Used by scripts/ingest_data.py and first-run auto-seeding.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -153,6 +154,41 @@ def ingest_knowledge(db: Session, knowledge: KnowledgeService, path: Path) -> di
         created += 1
     db.commit()
     return {"created": created, "skipped_existing": skipped}
+
+
+def sync_seed_articles(db: Session, knowledge: KnowledgeService, path: Path) -> dict:
+    """Bring existing databases up to date with the seed article file (e.g. new customer wording).
+
+    An article still as seeded gets a new version with the file's content. An article a person has changed is left
+    alone, except that its customer wording is added when its agent steps are still the seeded ones.
+    """
+    from app.services.grounded_templates import parse_kb
+
+    _, rows = read_csv_rows(path)
+    updated = wording_added = 0
+    for row in rows:
+        latest = db.scalar(select(KnowledgeArticle).where(KnowledgeArticle.article_id == row["article_id"],
+                                                          KnowledgeArticle.is_latest.is_(True)))
+        if latest is None or latest.content == row["content"]:
+            continue
+        if latest.created_by == "seed":
+            knowledge.update_article(db, latest.article_id, {"content": row["content"],
+                                                             "change_note": "seed update: customer wording"},
+                                     editor="seed")
+            updated += 1
+            continue
+        seeded, current = parse_kb(row["content"]), parse_kb(latest.content)
+        block = re.search(r"\nCustomer steps:\n(?:\d+[.)].*(?:\n|$))+", row["content"])
+        if block and not current["customer_steps"] and current["steps"] == seeded["steps"]:
+            anchor = re.search(r"\n(?:Escalate when|Caution|Source note):", latest.content)
+            at = anchor.start() if anchor else len(latest.content)
+            content = latest.content[:at] + "\n" + block.group(0).strip("\n") + latest.content[at:]
+            knowledge.update_article(db, latest.article_id, {"content": content,
+                                                             "change_note": "added customer wording"},
+                                     editor=latest.created_by)
+            wording_added += 1
+    db.commit()
+    return {"updated": updated, "customer_wording_added": wording_added}
 
 
 def build_ticket_chunks(db: Session) -> dict:

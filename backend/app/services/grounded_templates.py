@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 
+from app.services.wording import imperative, split_on_actions
 from app.utils.text import jaccard, sentences, stem_tokens
 
 INFO_GATHERING_STEPS = [
@@ -19,11 +20,14 @@ INFO_GATHERING_STEPS = [
     "Record every troubleshooting step the customer has already tried.",
 ]
 _ACTION_STEMS = {"restart", "reseat", "reinstal", "reset", "unplug", "replac", "check"}
-_SECTION = re.compile(r"^(Symptoms|Resolution steps|Escalate when|Caution|Source note):\s*(.*)$", re.I)
+_SECTION = re.compile(
+    r"^(Symptoms|Also asked as|Resolution steps|Customer steps|Escalate when|Caution|Source note):\s*(.*)$", re.I)
 
 
 def parse_kb(content: str) -> dict:
-    parsed = {"symptoms": "", "steps": [], "escalate": "", "caution": ""}
+    """Sections of an article. `customer_steps` (optional) words each resolution step for customers, in order."""
+    parsed = {"symptoms": "", "steps": [], "customer_steps": [], "escalate": "", "caution": ""}
+    section = "resolution steps"
     for raw in (content or "").splitlines():
         line = raw.strip()
         if not line:
@@ -32,6 +36,7 @@ def parse_kb(content: str) -> dict:
         if match:
             key = match.group(1).lower()
             value = match.group(2).strip()
+            section = key
             if key == "symptoms":
                 parsed["symptoms"] = value
             elif key == "escalate when":
@@ -41,32 +46,25 @@ def parse_kb(content: str) -> dict:
             continue
         numbered = re.match(r"^\d+[.)]\s+(.*)$", line)
         if numbered:
-            parsed["steps"].append(numbered.group(1).strip())
+            parsed["customer_steps" if section == "customer steps" else "steps"].append(numbered.group(1).strip())
     if not parsed["steps"]:
         parsed["steps"] = split_resolution(content)
     return parsed
 
 
 def split_resolution(text: str) -> list[str]:
-    """Split a one-sentence resolution ("Check X, restart Y, and record Z.") into steps."""
+    """Split a resolution ("Check X, restart Y, and record Z.") into instructions.
+
+    Resolved-ticket notes are often past tense ("Checked X, restarted Y"); they become instructions, and lists
+    such as "incoming, outgoing, or both" stay inside one step.
+    """
     body = re.sub(r"^.*?Resolution:\s*", "", text or "", flags=re.S | re.I).strip()
     pieces: list[str] = []
     for sentence in sentences(body):
-        parts = re.split(r";\s+|,\s+and\s+|,\s+then\s+|,\s+(?=[a-z])", sentence)
-        buffer = ""
-        for part in parts:
+        for part in split_on_actions(imperative(sentence)):
             part = part.strip(" .")
-            if not part:
-                continue
-            if buffer:
-                part = f"{buffer}, {part}"
-                buffer = ""
-            if re.match(r"^(if|where|when|unless)\b", part, re.I) and "," not in part and len(part.split()) < 8:
-                buffer = part
-                continue
-            pieces.append(part[0].upper() + part[1:] + ".")
-        if buffer:
-            pieces.append(buffer[0].upper() + buffer[1:] + ".")
+            if part:
+                pieces.append(part[0].upper() + part[1:] + ".")
     return pieces
 
 
@@ -85,6 +83,10 @@ def already_attempted(step: str, troubleshooting: list[str]) -> bool:
     for item in troubleshooting:
         tried |= set(stem_tokens(item))
     return bool(step_actions & tried & {"restart", "reseat", "reinstal", "reset", "unplug", "replac"})
+
+
+def _count(n: int, noun: str) -> str:
+    return f"{'no' if n == 0 else n} {noun}{'' if n == 1 else 's'}"
 
 
 def _cite(text: str, source_id: str) -> str:
@@ -134,6 +136,8 @@ def build_answer(payload: dict) -> dict:
                 continue
             if len(steps) >= 6 or (not is_kb and kb_count and len(steps) >= 3):
                 continue
+            if is_kb and kb_count > 1 and len(steps) >= 3:
+                continue  # one complete article is clearer than two half-overlapping ones; the second only corroborates
             steps.append({"text": text, "citations": [src["id"]], "kind": "resolution",
                           "already_attempted": already_attempted(text, troubleshooting)})
 
@@ -147,8 +151,9 @@ def build_answer(payload: dict) -> dict:
                    f"The steps below come from the closest general checklist '{primary['title']}' and are a "
                    f"candidate, not a confirmed fix. Please confirm whether they solved the problem.")
     elif mode == "known" and steps:
-        summary = (f"Verified evidence matches '{intent_display}'. The steps below come from {kb_count} knowledge "
-                   f"article(s) and {ticket_count} resolved historical ticket(s); each step cites its source.")
+        summary = (f"Verified evidence matches '{intent_display}'. The steps below come from "
+                   f"{_count(kb_count, 'help article')} and {_count(ticket_count, 'resolved ticket')}; "
+                   f"each step cites its source.")
     elif mode == "uncertain" and steps:
         summary = (f"CANDIDATE RESOLUTION - not verified. The evidence score {score:.2f} is below the KNOWN threshold "
                    f"({known_threshold:.2f}). These steps come from the closest verified sources and must be confirmed "

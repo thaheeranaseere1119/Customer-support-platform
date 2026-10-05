@@ -6,7 +6,7 @@ Usage: python scripts/generate_embeddings.py
 import json
 import sys
 
-import _bootstrap  # noqa: F401
+import scripts._bootstrap as _bootstrap  # noqa: F401
 
 from app.database import init_engine, session_scope
 from app.ingestion import embed_pending

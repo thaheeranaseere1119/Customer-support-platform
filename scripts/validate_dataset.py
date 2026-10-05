@@ -11,7 +11,7 @@ import csv
 import json
 import sys
 
-import _bootstrap  # noqa: F401
+import scripts._bootstrap as _bootstrap  # noqa: F401
 
 from app.config import DATA_DIR
 from app.utils.validation import read_csv_rows, validate_rows, write_rejections

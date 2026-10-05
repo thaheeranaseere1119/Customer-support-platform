@@ -19,9 +19,11 @@ from dataclasses import asdict, dataclass, field
 
 from app.config import get_settings
 from app.services import grounded_templates
+from app.services.grounded_templates import parse_kb
 from app.services.llm_provider import LLMProvider, get_fallback_provider
 from app.services.retrieval import ScoredSource
-from app.utils.text import token_overlap, truncate
+from app.services.wording import CUSTOMER_INFO_STEPS, customer_version
+from app.utils.text import jaccard, token_overlap, truncate
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,29 @@ Respond with a JSON object only, using exactly these keys:
 CITATION_RE = re.compile(r"\[([A-Za-z0-9][A-Za-z0-9_\-:.]{1,60})\]")
 FIGURE_RE = re.compile(r"(?:[₹$£€]\s?\d[\d,.]*|\b\d+(?:\.\d+)?\s?(?:%|percent|rs\b|inr\b|usd\b|dollars?|rupees?|"
                        r"days?|hours?|business days|weeks?|mbps|gbps))", re.I)
+
+
+def attach_customer_text(steps: list[dict], sources: list[ScoredSource]) -> None:
+    """Give every step a customer wording: the article's authored customer step when the step comes from an
+    article (matched in order, or by wording for LLM paraphrases), otherwise a rule-based rewrite."""
+    articles = {}
+    for src in sources:
+        if src.source_type == "knowledge_base" and src.source_id not in articles:
+            parsed = parse_kb(src.content)
+            if parsed["customer_steps"] and len(parsed["customer_steps"]) == len(parsed["steps"]):
+                articles[src.source_id] = parsed
+    for step in steps:
+        if step.get("kind") == "information_gathering":
+            step["customer_text"] = CUSTOMER_INFO_STEPS.get(step["text"]) or customer_version(step["text"])
+            continue
+        best: tuple[float, str] | None = None
+        for source_id in step.get("citations", []):
+            parsed = articles.get(source_id)
+            for agent, customer in zip(parsed["steps"], parsed["customer_steps"]) if parsed else ():
+                score = 1.0 if agent == step["text"] else jaccard(agent, step["text"])
+                if score >= 0.6 and (best is None or score > best[0]):
+                    best = (score, customer)
+        step["customer_text"] = best[1] if best else customer_version(step["text"])
 
 
 def is_general(source: ScoredSource) -> bool:
@@ -75,13 +100,22 @@ class RAGService:
         self.settings = get_settings()
 
     # ------------------------------------------------------------- selection
-    def select_sources(self, mode: str, sources: list[ScoredSource], intent: str) -> list[ScoredSource]:
+    def select_sources(self, mode: str, sources: list[ScoredSource], intent: str,
+                       trusted_intent: str | None = None, general_min_semantic: float = 0.0) -> list[ScoredSource]:
         s = self.settings
         if not sources:
             return []
+        if trusted_intent:
+            # The issue type is clear: answer from its own help article(s), backed by its resolved tickets.
+            own = [x for x in sources if x.intent == trusted_intent and not is_general(x)
+                   and x.semantic_score >= s.trusted_article_min_semantic]
+            articles = [x for x in own if x.source_type == "knowledge_base"]
+            if articles:
+                return (articles + [x for x in own if x.source_type != "knowledge_base"])[:4]
         if mode == "known":
             top_intent = sources[0].intent
             chosen = [x for x in sources if x.final_score >= s.min_relevant_score and x.intent in {top_intent, intent}]
+            chosen.sort(key=lambda x: x.source_type != "knowledge_base")  # articles first; tickets corroborate
             return (chosen or sources[:1])[:4]
         # A candidate hypothesis needs reasonably similar AND relevant verified evidence.
         specific = [x for x in sources if not is_general(x) and x.semantic_score >= s.candidate_min_semantic
@@ -90,7 +124,7 @@ class RAGService:
             return specific
         # Nothing issue-specific: fall back to the closest GENERAL checklist so the customer
         # still gets the best-suitable cited guidance (clearly labelled as general).
-        general = [x for x in sources if is_general(x) and x.hybrid_score > 0]
+        general = [x for x in sources if is_general(x) and x.hybrid_score > 0 and x.semantic_score >= general_min_semantic]
         return general[:1]
 
     def build_prompt(self, payload: dict) -> str:
@@ -112,7 +146,8 @@ class RAGService:
             lines.append("(no sufficiently relevant evidence was retrieved)")
         for src in payload["sources"]:
             kind = "general checklist, not issue-specific" if src.get("general") else src["type"]
-            lines.append(f"[{src['id']}] ({kind}) {src['title']}\n{truncate(src['content'], 1200)}")
+            content = re.sub(r"\nCustomer steps:\n(?:\d+[.)].*\n?)+", "\n", src["content"])  # wording for customers only
+            lines.append(f"[{src['id']}] ({kind}) {src['title']}\n{truncate(content, 1200)}")
         return "\n".join(lines)
 
     # ---------------------------------------------------------------- guard
@@ -221,10 +256,12 @@ class RAGService:
             fallback_note = "The LLM was unavailable, so a deterministic evidence-only template was used."
         latency = (time.perf_counter() - started) * 1000
         cleaned, report = self.guard(raw, sources, mode)
+        attach_customer_text(cleaned["steps"], sources)
         if fallback_note:
             cleaned["warnings"].append(fallback_note)
         if self.provider.is_llm and generator == self.provider.name and not cleaned["steps"]:
             cleaned, report = self.guard(self.fallback.complete_json("rag_answer", SYSTEM_PROMPT, "", payload), sources, mode)
+            attach_customer_text(cleaned["steps"], sources)
             generator = "grounded_template_fallback"
 
         cited_ids: list[str] = []

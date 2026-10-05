@@ -12,7 +12,7 @@ import json
 import sys
 from pathlib import Path
 
-import _bootstrap  # noqa: F401
+import scripts._bootstrap as _bootstrap  # noqa: F401
 
 from app.database import init_engine
 from app.ingestion import run_ingestion

@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -88,6 +89,15 @@ def bootstrap(role: str) -> None:
             sync_products(db)
     except Exception:
         logger.exception("Product keyword sync failed")
+    try:  # existing databases pick up seed article updates (customer wording) from data/knowledge_base.csv
+        from app.ingestion import sync_seed_articles
+
+        with session_scope() as db:
+            result = sync_seed_articles(db, get_container().services.knowledge, Path(settings.knowledge_base_path))
+            if any(result.values()):
+                logger.info("Seed articles synced", extra={"fields": result})
+    except Exception:
+        logger.exception("Seed article sync failed")
     try:
         from app.services.auth import ensure_first_user
 

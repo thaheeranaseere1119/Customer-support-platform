@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 
-import _bootstrap  # noqa: F401
+import scripts._bootstrap as _bootstrap  # noqa: F401
 
 from app.database import init_engine, session_scope
 from app.dependencies import get_container

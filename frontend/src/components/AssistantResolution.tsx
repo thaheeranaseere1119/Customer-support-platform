@@ -82,6 +82,10 @@ export function AssistantResolution({ caseId, attempt, sessionId, audience = "ad
   const resolutionSteps = a.steps;
 
   if (customer) {
+    // Plain wording written for customers; agent-only steps ("" ) are left out.
+    const customerSteps = resolutionSteps
+      .map((st) => ({ ...st, text: st.customer_text ?? st.text }))
+      .filter((st) => st.text.trim().length > 0);
     // Customer view: plain steps, sources as links to help articles, no internal IDs or scores.
     const kbSources = a.citations.filter((c) => c.source_type === "knowledge_base");
     const caseCount = a.citations.filter((c) => c.source_type !== "knowledge_base").length;
@@ -98,7 +102,7 @@ export function AssistantResolution({ caseId, attempt, sessionId, audience = "ad
     return (
       <div className="cr" aria-label="Suggested solution">
         <ol className={`cr-steps ${gathering ? "checklist" : ""}`}>
-          {resolutionSteps.map((step, i) => (
+          {customerSteps.map((step, i) => (
             <li key={i} className={step.already_attempted ? "tried" : ""}>
               {step.text}{step.already_attempted && <em> (you've already tried this)</em>}
             </li>))}

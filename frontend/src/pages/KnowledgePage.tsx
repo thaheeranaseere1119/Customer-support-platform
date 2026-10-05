@@ -12,7 +12,7 @@ import type { KnowledgeArticle } from "../types/api";
 import { humanize, timeAgo } from "../utils/format";
 
 interface Draft { title: string; content: string; category: string; intent: string; product: string; status: "ACTIVE" | "DRAFT" }
-const TEMPLATE = "Symptoms: \nResolution steps:\n1. \n2. \nEscalate when: \nCaution: ";
+const TEMPLATE = "Symptoms: \nResolution steps:\n1. \n2. \nCustomer steps:\n1. \n2. \nEscalate when: \nCaution: ";
 
 function ArticleForm({ value, onChange, categories, intents }:
   { value: Draft; onChange: (d: Draft) => void; categories: string[]; intents: { name: string; display_name: string }[] }) {
@@ -30,7 +30,7 @@ function ArticleForm({ value, onChange, categories, intents }:
           <option value="DRAFT">DRAFT (not retrievable)</option><option value="ACTIVE">ACTIVE (indexed for retrieval)</option></select></div>
       </div>
       <div className="field"><label htmlFor="kb-content">Content</label><textarea id="kb-content" className="textarea" style={{ minHeight: 220 }} value={value.content} onChange={set("content")} />
-        <span className="field-hint">Use “Resolution steps” with numbered lines so steps can be cited individually.</span></div>
+        <span className="field-hint">Use “Resolution steps” with numbered lines so steps can be cited individually, and “Customer steps” with the same steps in plain words for customers (same number, same order).</span></div>
     </>
   );
 }

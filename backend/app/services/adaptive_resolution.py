@@ -30,7 +30,7 @@ from app.services.knowledge_evolution import KnowledgeService, is_dataset_query
 from app.services.memory import MemoryService
 from app.services.rag import RAGService
 from app.services.reranker import RerankerService
-from app.services.retrieval import RetrievalFilters, RetrievalService
+from app.services.retrieval import RetrievalFilters, RetrievalService, ScoredSource
 from app.services.scope import (
     CLARIFY_REPLY,
     OUT_OF_SCOPE_REPLY,
@@ -166,6 +166,31 @@ class AdaptiveResolutionService:
             return taxonomy.top_category(info.support_category)
         return None
 
+    def _trusted_intent(self, analysis: Analysis) -> str | None:
+        if analysis.intent and analysis.intent != "unknown" and \
+                analysis.intent_confidence >= self.settings.trusted_intent_confidence:
+            return analysis.intent
+        return None
+
+    def _anchor_articles(self, db: Session, sources: list[ScoredSource], intent: str, query: str, analysis: Analysis,
+                         taxonomy, exclude_ids: set[str], qvec) -> list[ScoredSource]:
+        """Put the help article(s) for a confidently classified issue type first; fetch them if search missed them."""
+        s = self.s
+        floor = self.settings.trusted_article_min_semantic
+
+        def own(src: ScoredSource) -> bool:
+            return (src.source_type == "knowledge_base" and src.intent == intent and not (src.extra or {}).get("general")
+                    and src.semantic_score >= floor)
+
+        if not any(own(x) for x in sources):
+            extra = s.retrieval.search(
+                db, query, intent=intent, category=analysis.category, product=analysis.product, taxonomy=taxonomy,
+                filters=RetrievalFilters(exclude_source_ids=exclude_ids, source_types={"knowledge_base"}), top_k=5,
+                query_vector=qvec)
+            known = {x.source_id for x in sources}
+            sources = sources + [x for x in extra.sources if own(x) and x.source_id not in known]
+        return [x for x in sources if own(x)] + [x for x in sources if not own(x)]
+
     # ================================================================ core run
     def _run(self, db: Session, *, request_id: str, session, complaint: str, analysis: Analysis, effective_query: str,
              guided_category: str | None, attempt_number: int, exclude_ids: set[str], previous_steps: list[str],
@@ -199,6 +224,11 @@ class AdaptiveResolutionService:
         sources, rerank_method = s.reranker.rerank(effective_query, outcome.sources)
         named = bool(analysis.category and analysis.category != "Unclassified")
         sources = s.retrieval.prefer_topic(sources, self._topic(analysis, taxonomy), taxonomy, strict=named)
+        trusted = self._trusted_intent(analysis)
+        # Confidence is measured on the best-matching sources; the answer is written from the issue type's article.
+        answer_order = (self._anchor_articles(db, sources, trusted, effective_query, analysis, taxonomy, exclude_ids, qvec)
+                        if trusted else sources)
+        sources = sources + [x for x in answer_order if x not in sources]
         tracker.finish("success" if rerank_method in ("cross_encoder", "none") else "warning",
                        "cross-encoder reranking" if rerank_method == "cross_encoder" else
                        ("no sources to rerank" if rerank_method == "none" else "reranker unavailable: hybrid score used"))
@@ -212,7 +242,18 @@ class AdaptiveResolutionService:
 
         # -- generation ------------------------------------------------------
         tracker.start("generating")
-        selected = s.rag.select_sources(mode, sources, analysis.intent)
+        general_floor = s.embeddings.general_checklist_threshold()
+
+        def fitting(items: list[ScoredSource]) -> list[ScoredSource]:
+            """A general checklist must be about the topic the question names (heat on 'mobile data' is not a
+            calling problem); with no topic named, the relevance bar alone decides."""
+            if not named:
+                return items
+            return [x for x in items if not (x.extra or {}).get("general")
+                    or taxonomy.top_category(x.category) == analysis.category]
+
+        selected = s.rag.select_sources(mode, fitting(answer_order), analysis.intent, trusted_intent=trusted,
+                                        general_min_semantic=general_floor)
         if not selected and mode != "known":
             # No issue-specific evidence qualifies: look up the closest general checklist so the
             # customer still receives best-suitable, cited guidance (labelled as general).
@@ -221,7 +262,7 @@ class AdaptiveResolutionService:
                 taxonomy=taxonomy, filters=RetrievalFilters(exclude_source_ids=exclude_ids, general_only=True),
                 top_k=5, query_vector=qvec)
             ranked, _ = s.reranker.rerank(effective_query, general.sources)
-            selected = s.rag.select_sources(mode, ranked, analysis.intent)
+            selected = s.rag.select_sources(mode, fitting(ranked), analysis.intent, general_min_semantic=general_floor)
             sources = sources + [x for x in selected if x.source_id not in {y.source_id for y in sources}]
         info = taxonomy.intents.get(analysis.intent)
         follow_up = None

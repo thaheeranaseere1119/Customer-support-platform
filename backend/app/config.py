@@ -104,6 +104,13 @@ class Settings(BaseSettings):
     topic_mismatch_factor: float = 0.60
     # With no category detected, the closest intent's topic is used as the hint when its similarity reaches this.
     topic_hint_min_similarity: float = 0.50
+    # A confidently classified issue type is answered from its own help article first (the cross-encoder scores
+    # short questions low even for the right article). The article must still be this similar to the question.
+    trusted_intent_confidence: float = 0.60
+    trusted_article_min_semantic: float = 0.30
+    # A general checklist is offered only when it is at least this close to the question; otherwise the customer
+    # is asked for details instead of getting unrelated steps.
+    general_checklist_min_semantic: float = 0.10  # measured: fitting questions >= 0.12, hardware faults <= 0.10
 
     # --- Evidence scoring --------------------------------------------------
     known_threshold: float = 0.70

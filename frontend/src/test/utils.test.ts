@@ -17,3 +17,18 @@ describe("format utils", () => {
     expect(linesToList(" a \n\n b\n")).toEqual(["a", "b"]);
   });
 });
+
+describe("help article parsing", () => {
+  it("shows customers the customer steps, never the agent instructions", async () => {
+    const { parseArticle } = await import("../site/articles");
+    const content = "Symptoms: No signal.\nAlso asked as: no bars on my phone\nResolution steps:\n1. Restart the device.\n"
+      + "2. Escalate with location details.\nCustomer steps:\n1. Restart your phone.\n2. Tell me where you are.\n"
+      + "Escalate when: No signal persists.\nCaution: None.";
+    expect(parseArticle(content)).toEqual({ symptoms: "No signal.", steps: ["Restart your phone.", "Tell me where you are."] });
+  });
+
+  it("falls back to the resolution steps when an article has no customer wording", async () => {
+    const { parseArticle } = await import("../site/articles");
+    expect(parseArticle("Symptoms: x\nResolution steps:\n1. Restart the router.\nCaution: y").steps).toEqual(["Restart the router."]);
+  });
+});

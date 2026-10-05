@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 
-import _bootstrap  # noqa: F401
+import scripts._bootstrap as _bootstrap  # noqa: F401
 
 from app.database import create_all, db_state, init_engine
 from app.ingestion import reset_database

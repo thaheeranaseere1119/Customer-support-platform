@@ -46,12 +46,14 @@ _SENTIMENTS = {"positive", "neutral", "negative", "frustrated", "urgent"}
 
 
 ALSO_ASKED = "Also asked as:"
+ARTICLE_CHUNK_CHARS = 2400  # help articles are indexed whole (agent and customer steps together)
 MAX_ALSO_ASKED = 12  # most recent customer phrasings kept on one article
 
 
 def _resolution_section(body: str) -> str:
     """The "Resolution steps:" part of an article body (what the reviewer approved), if present."""
-    match = re.search(r"Resolution steps:\s*\n(.*?)(?:\n\s*(?:Escalate when|Caution|Source note):|\Z)", body or "", re.S)
+    match = re.search(r"Resolution steps:\s*\n(.*?)(?:\n\s*(?:Customer steps|Escalate when|Caution|Source note):|\Z)",
+                      body or "", re.S)
     return match.group(1).strip() if match else ""
 
 
@@ -171,7 +173,7 @@ class KnowledgeService:
         if article.status == "ACTIVE" and article.is_latest:
             taxonomy = taxonomy_service.get(db)
             intent = taxonomy.intents.get(article.intent)
-            pieces = chunk_text(article.content)
+            pieces = chunk_text(article.content, max_chars=ARTICLE_CHUNK_CHARS)  # one chunk keeps both step lists
             vectors = self.embeddings.embed([f"{article.title}. {p}" for p in pieces])
             for idx, (piece, vec) in enumerate(zip(pieces, vectors)):
                 chunk_id = f"{article.article_id}:v{article.version}:{idx}"

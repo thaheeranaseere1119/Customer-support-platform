@@ -123,6 +123,11 @@ class EmbeddingService:
         s = self.settings
         return s.intent_example_threshold_st if self.backend == "sentence_transformers" else s.intent_example_threshold_hashing
 
+    def general_checklist_threshold(self) -> float:
+        """Calibrated on the sentence-transformers scale; the hashed fallback cannot tell close from far apart."""
+        self.load()
+        return self.settings.general_checklist_min_semantic if self.backend == "sentence_transformers" else 0.0
+
     def emerging_threshold(self) -> float:
         self.load()
         s = self.settings

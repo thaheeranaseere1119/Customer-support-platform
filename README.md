@@ -82,7 +82,7 @@ rebuilds whenever the stored chunks change, so separate processes always see new
 | LLM | Provider abstraction: `GeminiProvider` (AI MODE) and `MockProvider` (DEMO MODE, no key needed) |
 | Frontend | React 18, TypeScript, Vite, React Router, TanStack Query, plain CSS design system |
 | Auth | Staff accounts (PBKDF2-SHA256), HMAC-signed bearer tokens, login lockout; public customer endpoints |
-| Tests | pytest (184 tests), Vitest + Testing Library (34 tests), `scripts/verify_api.py` (43 live checks), `scripts/verify_llm.py` |
+| Tests | pytest (249 tests), Vitest + Testing Library (37 tests), `scripts/verify_api.py` (43 live checks), `scripts/verify_llm.py` |
 
 ## Project structure
 

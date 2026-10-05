@@ -82,6 +82,8 @@ export interface Step {
   citations: string[];
   kind: "resolution" | "information_gathering";
   already_attempted: boolean;
+  /** The same step in plain words for customers; "" means agent-only (hidden from customers). */
+  customer_text?: string | null;
 }
 
 export interface Resolution {
