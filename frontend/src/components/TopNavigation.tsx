@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { initials, useAgentName } from "../hooks/useAgentName";
+import { setStaffToken } from "../hooks/useStaffSession";
 import { api } from "../services/api";
 import type { Health } from "../types/api";
 import { cleanTitle } from "../site/articles";
@@ -94,9 +95,12 @@ function AgentMenu() {
     );
   }
   return (
-    <button type="button" className="agent-chip" onClick={() => { setDraft(name); setEditing(true); }} title="Change the name customers see on your replies">
-      <span className="avatar" aria-hidden="true">{initials(name)}</span><span className="agent-name">{name}</span>
-    </button>
+    <div className="row" style={{ gap: 6 }}>
+      <button type="button" className="agent-chip" onClick={() => { setDraft(name); setEditing(true); }} title="Change the name customers see on your replies">
+        <span className="avatar" aria-hidden="true">{initials(name)}</span><span className="agent-name">{name}</span>
+      </button>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setStaffToken(null)}>Sign out</button>
+    </div>
   );
 }
 

@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_container, get_db
-from app.models import ConversationMessage, ConversationSession, SupportCase
+from app.dependencies import get_container, get_db, optional_staff, require_staff
+from app.models import ConversationMessage, ConversationSession, StaffUser, SupportCase
 from app.schemas.common import SESSION_PATTERN
 from app.schemas.conversation import (
     AgentMessage,
@@ -70,7 +70,7 @@ def start_conversation(body: StartConversation, db: Session = Depends(get_db)) -
     return conversation_payload(db, session)
 
 
-@router.get("/conversations")
+@router.get("/conversations", dependencies=[Depends(require_staff)])
 def list_conversations(handoff_status: str | None = Query(None, pattern="^(bot|needs_agent|agent|closed)$"),
                        channel: str | None = Query(None, pattern="^(customer_app|agent_console)$"),
                        limit: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)) -> dict:
@@ -146,8 +146,11 @@ def post_message(body: MessageRequest, session_id: str = SESSION, db: Session = 
 
 
 @router.post("/conversations/{session_id}/handoff", response_model=ConversationOut)
-def change_handoff(body: HandoffAction, session_id: str = SESSION, db: Session = Depends(get_db)) -> dict:
-    """request / cancel (customer) | take | release | close (admin)."""
+def change_handoff(body: HandoffAction, session_id: str = SESSION, db: Session = Depends(get_db),
+                   user: StaffUser | None = Depends(optional_staff)) -> dict:
+    """request / cancel (customer) | take | release | close (signed-in staff)."""
+    if body.action in ("take", "release", "close"):
+        require_staff(user)
     if body.action == "request":
         session = handoff.request_agent(db, session_id, body.reason or "Customer asked for a human agent", by="customer")
     elif body.action == "cancel":
@@ -162,7 +165,7 @@ def change_handoff(body: HandoffAction, session_id: str = SESSION, db: Session =
     return conversation_payload(db, session)
 
 
-@router.post("/conversations/{session_id}/agent-message", response_model=ConversationOut)
+@router.post("/conversations/{session_id}/agent-message", response_model=ConversationOut, dependencies=[Depends(require_staff)])
 def send_agent_message(body: AgentMessage, session_id: str = SESSION, db: Session = Depends(get_db)) -> dict:
     """Admin: a human agent replies to the customer (takes over the chat if needed)."""
     handoff.agent_message(db, session_id, body.agent, body.message)
@@ -170,7 +173,7 @@ def send_agent_message(body: AgentMessage, session_id: str = SESSION, db: Sessio
     return conversation_payload(db, _session(db, session_id))
 
 
-@router.post("/conversations/{session_id}/read", response_model=ConversationOut)
+@router.post("/conversations/{session_id}/read", response_model=ConversationOut, dependencies=[Depends(require_staff)])
 def mark_read(session_id: str = SESSION, db: Session = Depends(get_db)) -> dict:
     session = _session(db, session_id)
     session.agent_unread = 0

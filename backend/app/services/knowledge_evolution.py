@@ -45,6 +45,10 @@ _SEVERITIES = {"low", "medium", "high", "critical"}
 _SENTIMENTS = {"positive", "neutral", "negative", "frustrated", "urgent"}
 
 
+ALSO_ASKED = "Also asked as:"
+MAX_ALSO_ASKED = 12  # most recent customer phrasings kept on one article
+
+
 def _resolution_section(body: str) -> str:
     """The "Resolution steps:" part of an article body (what the reviewer approved), if present."""
     match = re.search(r"Resolution steps:\s*\n(.*?)(?:\n\s*(?:Escalate when|Caution|Source note):|\Z)", body or "", re.S)
@@ -346,7 +350,8 @@ class KnowledgeService:
                 f"{' (case ' + candidate.case_id + ')' if candidate.case_id else ''}; customer feedback was "
                 f"'{candidate.customer_feedback}'.\nSource note: verified by {reviewer}."
             )
-            # A query solved by an existing verified article adds a new dataset example, not a duplicate article.
+            # A query solved by an existing verified article adds the customer's wording to that article (and a
+            # dataset example), not a duplicate article.
             kb_match = candidate.origin == "kb_match"
             article = None if kb_match else self.create_article(
                 db, title=title or truncate(candidate.proposed_title, 190), content=body, category=final_category,
@@ -359,6 +364,9 @@ class KnowledgeService:
             if article is not None:
                 candidate.approved_article_id = article.article_id
             cited = next((x["source_id"] for x in candidate.sources if x.get("source_type") == "knowledge_base"), None)
+            updated = self._add_customer_wording(db, cited, candidate, reviewer) if kb_match else None
+            if updated is not None:
+                candidate.approved_article_id = updated.article_id
             record_id = self.add_to_dataset(db, candidate, intent=final_intent, resolution=_resolution_section(body) or steps,
                                             reviewer=reviewer,
                                             citation_id=article.article_id if article else (cited or "human_review"))
@@ -369,8 +377,16 @@ class KnowledgeService:
                                f"{'our agent gave you' if candidate.origin == 'agent_resolved' else 'you confirmed'} and added it "
                                f"to our knowledge base as {article.article_id}, so future customers get it straight away. Thank you!",
                                {"candidate_id": candidate.id, "article_id": article.article_id, "review": "approved"})
+            if updated is not None and candidate.case_id:
+                case = db.get(SupportCase, candidate.case_id)
+                handoff.notify(db, case.session_id if case else None,
+                               f"Update on your issue: a support specialist confirmed the fix that worked for you and "
+                               f"added your question to help article {updated.article_id}, so customers who describe it "
+                               f"the same way get it straight away. Thank you!",
+                               {"candidate_id": candidate.id, "article_id": updated.article_id, "review": "approved"})
             db.flush()
             return {"item_id": item_id, "status": "approved", "article": article_to_dict(article) if article else None,
+                    "updated_article": article_to_dict(updated) if updated else None,
                     "indexed": True, "index_version_pending": True, "dataset_record_id": record_id}
         article = self.latest(db, item_id)
         if article.status != "DRAFT":
@@ -381,6 +397,35 @@ class KnowledgeService:
         self.index_article(db, article)
         return {"item_id": item_id, "status": "approved", "article": article_to_dict(article), "indexed": True,
                 "index_version_pending": True}
+
+    def _add_customer_wording(self, db: Session, article_id: str | None, candidate: CandidateCase,
+                              reviewer: str) -> KnowledgeArticle | None:
+        """Save a new way of describing the problem on the article that solved it (as a new version).
+
+        The "Also asked as:" line is searched like the rest of the article, so the next customer who words the
+        problem the same way finds it; it is not a numbered step, so it never becomes part of an answer.
+        """
+        if not article_id:
+            return None
+        current = db.scalar(select(KnowledgeArticle).where(KnowledgeArticle.article_id == article_id,
+                                                           KnowledgeArticle.is_latest.is_(True)))
+        if current is None or current.status != "ACTIVE":
+            return None
+        phrase = truncate(re.sub(r"\s+", " ", strip_synthetic_tag(candidate.complaint)).strip(" |"), 200)
+        lines = (current.content or "").splitlines()
+        index = next((i for i, line in enumerate(lines) if line.startswith(ALSO_ASKED)), None)
+        known = [p.strip() for p in lines[index][len(ALSO_ASKED):].split("|")] if index is not None else []
+        if not phrase or phrase.lower() in {k.lower() for k in known}:
+            return current
+        line = ALSO_ASKED + " " + " | ".join((known + [phrase])[-MAX_ALSO_ASKED:])
+        if index is not None:
+            lines[index] = line
+        else:  # right after "Symptoms:", so it stays out of the "Resolution steps" section
+            at = next((i + 1 for i, text in enumerate(lines) if text.startswith("Symptoms:")), 0)
+            lines.insert(at, line)
+        return self.update_article(db, article_id, {"content": "\n".join(lines),
+                                                    "change_note": f"added customer wording from {candidate.id}"},
+                                   editor=reviewer)
 
     def add_to_dataset(self, db: Session, candidate: CandidateCase, *, intent: str, resolution: str, reviewer: str,
                        citation_id: str) -> str | None:

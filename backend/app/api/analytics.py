@@ -5,13 +5,13 @@ from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_container, get_db
+from app.dependencies import get_container, get_db, require_staff
 from app.models import EvaluationRun
 from app.schemas.common import StrictModel
 from app.services.analytics import overview
 from app.services.evaluation import run_to_dict
 
-router = APIRouter(tags=["analytics"])
+router = APIRouter(tags=["analytics"], dependencies=[Depends(require_staff)])
 
 
 class EvaluateRequest(StrictModel):

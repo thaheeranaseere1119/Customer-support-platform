@@ -93,13 +93,22 @@ def test_known_solved_new_query_goes_to_review_then_into_dataset(client, db, ses
     candidate = db.get(CandidateCase, fb["candidate_id"])
     assert candidate.origin == "kb_match" and candidate.status == "pending_review"
 
-    articles_before = db.scalar(select(func.count()).select_from(KnowledgeArticle))
+    articles_before = db.scalar(select(func.count(func.distinct(KnowledgeArticle.article_id))))
+    cited = next(s["source_id"] for s in candidate.sources if s.get("source_type") == "knowledge_base")
     approved = client.post(f"/api/v1/knowledge/{candidate.id}/approve", json={"reviewer": "qa-lead"}).json()
     assert approved["status"] == "approved" and approved["article"] is None  # no duplicate article
     record_id = approved["dataset_record_id"]
     assert record_id.startswith("TELCO-LIVE-")
     db.expire_all()
-    assert db.scalar(select(func.count()).select_from(KnowledgeArticle)) == articles_before
+    assert db.scalar(select(func.count(func.distinct(KnowledgeArticle.article_id)))) == articles_before
+    # ... instead the article that solved it learns the customer's wording, as a new version.
+    updated = approved["updated_article"]
+    assert updated["article_id"] == cited and updated["status"] == "ACTIVE"
+    assert f"Also asked as: {complaint}" in updated["content"]
+    from app.services.grounded_templates import parse_kb
+    assert complaint not in " ".join(parse_kb(updated["content"])["steps"])  # never shown as a fix step
+    article = client.get(f"/api/v1/knowledge/{cited}").json()
+    assert article["version"] == updated["version"] and len(article["versions"]) >= 2
     ticket = db.get(Ticket, record_id)
     assert ticket.customer_complaint == complaint and ticket.human_verification_status == "human_verified"
 

@@ -1,6 +1,9 @@
 """Live smoke test of every API endpoint against a running backend.
 
-Usage: python scripts/verify_api.py [--base http://127.0.0.1:8000]
+Usage: python scripts/verify_api.py [--base http://127.0.0.1:8000] [--username NAME]
+
+Agent endpoints need a staff login: the password is read from STAFF_PASSWORD (or ADMIN_PASSWORD, e.g. from .env),
+never from the command line. The username defaults to STAFF_USERNAME / ADMIN_USERNAME.
 
 It exercises the full workflow (resolve -> feedback -> retry -> candidate -> approve,
 draft reject, intents, emerging issues, conversations, analytics) and prints a
@@ -9,6 +12,7 @@ afterwards if you want a clean database.
 """
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -16,11 +20,14 @@ import urllib.request
 import uuid
 
 RESULTS: list[tuple[str, str, int, bool, str]] = []
+HEADERS = {"Content-Type": "application/json"}
 
 
-def call(base: str, method: str, path: str, body: dict | None = None, expect: int = 200, label: str | None = None):
+def call(base: str, method: str, path: str, body: dict | None = None, expect: int = 200, label: str | None = None,
+         anonymous: bool = False):
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(base + path, data=data, method=method, headers={"Content-Type": "application/json"})
+    headers = {"Content-Type": "application/json"} if anonymous else HEADERS
+    req = urllib.request.Request(base + path, data=data, method=method, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
             status, payload = resp.status, resp.read()
@@ -38,10 +45,18 @@ def call(base: str, method: str, path: str, body: dict | None = None, expect: in
     return parsed
 
 
-def main(base: str) -> int:
+def main(base: str, username: str | None, password: str | None) -> int:
     api = base.rstrip("/") + "/api/v1"
     sid = f"verify-{uuid.uuid4().hex[:8]}"
     call(api, "GET", "/health")
+    call(api, "GET", "/cases", expect=401, label="/cases (no login -> 401)", anonymous=True)
+    if username and password:
+        login = call(api, "POST", "/auth/login", {"username": username, "password": password}, label="/auth/login")
+        if isinstance(login, dict) and login.get("token"):
+            HEADERS["Authorization"] = f"Bearer {login['token']}"
+        call(api, "GET", "/auth/me")
+    else:
+        print("No staff credentials (set STAFF_USERNAME / STAFF_PASSWORD); agent endpoints will fail.\n")
     known = call(api, "POST", "/resolve", {"session_id": sid, "complaint": "My broadband keeps disconnecting every evening around 8 PM"})
     call(api, "POST", "/resolve", {"session_id": sid, "complaint": ""}, expect=422, label="/resolve (empty complaint -> 422)")
     call(api, "POST", "/resolve/stream", {"session_id": sid, "complaint": "My calls keep dropping"}, label="/resolve/stream")
@@ -115,8 +130,20 @@ def main(base: str) -> int:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--base", default="http://127.0.0.1:8000")
+    parser.add_argument("--username", default=os.environ.get("STAFF_USERNAME") or os.environ.get("ADMIN_USERNAME"))
     args = parser.parse_args()
     started = time.time()
-    code = main(args.base)
+    username, password = args.username, os.environ.get("STAFF_PASSWORD") or os.environ.get("ADMIN_PASSWORD")
+    if not (username and password):  # fall back to the first staff account configured in .env
+        try:
+            import _bootstrap  # noqa: F401
+
+            from app.config import get_settings
+            settings = get_settings()
+            username = username or settings.admin_username
+            password = password or (settings.admin_password.get_secret_value() if settings.admin_password else None)
+        except Exception:  # backend not importable here: stay anonymous
+            pass
+    code = main(args.base, username, password)
     print(f"({time.time() - started:.1f}s)")
     sys.exit(code)

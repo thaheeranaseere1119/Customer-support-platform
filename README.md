@@ -48,7 +48,28 @@ REPEATED UNKNOWN CASES ─► embeddings + clustering ─► emerging issue ─�
 5. The admin clicks **Hand back to assistant** or **Mark solved & close**; open cases become `resolved_by_agent`. A new customer
    message reopens a closed chat with the bot.
 
-There is no login: anyone who opens `/admin` has admin access. Add authentication before any real deployment.
+**Sign-in.** Customers never log in. Staff sign in at `/admin` with a username and password (PBKDF2-hashed, signed
+12-hour tokens, a 10-minute lockout after 5 failed attempts). Every agent API (inbox actions, cases, review queue,
+article editing, trending problems, issue types, reports, settings, logs, "Test the assistant") needs a staff token; the
+help center and the chat widget use only public endpoints, and the public article list shows published articles only.
+The first account comes from `ADMIN_USERNAME` / `ADMIN_PASSWORD`; add more with
+`backend/.venv/bin/python scripts/create_staff_user.py <username> --display-name "Priya S"`.
+
+## Services
+
+```
+browser ─► frontend (nginx) ─► gateway  ── public + admin API, sign-in, chats, cases, review queue, orchestration
+                                  ├─► nlu         intent / category, product, severity, sentiment, key details
+                                  ├─► retrieval   hybrid semantic + keyword + metadata search, cross-encoder re-ranking
+                                  └─► generation  LLM draft (Gemini, or the demo template) + grounding guard
+```
+
+One code base and one image; `SERVICE_ROLE` picks the role. The internal services publish no ports and accept only calls
+carrying `INTERNAL_API_TOKEN`; the LLM key is given only to the services that call the LLM (generation, and nlu in AI
+mode). Each gateway adapter subclasses the in-process service, so `SERVICE_ROLE=all` (the default, used for local runs
+and the tests) runs the identical pipeline in one process. If the generation service is down the gateway answers with the
+cited evidence-only template; if retrieval is down it returns `RETRIEVAL_FAILED` rather than guessing. The search index
+rebuilds whenever the stored chunks change, so separate processes always see newly approved articles.
 
 ## Stack
 
@@ -60,7 +81,8 @@ There is no login: anyone who opens `/admin` has admin access. Add authenticatio
 | Reranker | `cross-encoder/ms-marco-MiniLM-L-6-v2` (optional); falls back to the hybrid score |
 | LLM | Provider abstraction: `GeminiProvider` (AI MODE) and `MockProvider` (DEMO MODE, no key needed) |
 | Frontend | React 18, TypeScript, Vite, React Router, TanStack Query, plain CSS design system |
-| Tests | pytest (138 tests), Vitest + Testing Library (30 tests), `scripts/verify_api.py` (40 live checks) |
+| Auth | Staff accounts (PBKDF2-SHA256), HMAC-signed bearer tokens, login lockout; public customer endpoints |
+| Tests | pytest (184 tests), Vitest + Testing Library (34 tests), `scripts/verify_api.py` (43 live checks), `scripts/verify_llm.py` |
 
 ## Project structure
 
@@ -68,19 +90,21 @@ There is no login: anyone who opens `/admin` has admin access. Add authenticatio
 backend/
   app/
     main.py config.py database.py dependencies.py ingestion.py
-    api/        health resolve feedback knowledge conversations emerging_issues intents analytics system _stream
-    models/     ticket knowledge case resolution_attempt candidate_case conversation feedback emerging_issue intent evaluation
+    api/        health auth resolve feedback knowledge conversations emerging_issues intents analytics system _stream
+                internal (nlu / retrieval / generation service endpoints)
+    models/     ticket knowledge case resolution_attempt candidate_case conversation feedback emerging_issue intent evaluation staff
     schemas/    resolve feedback knowledge conversation emerging_issue common
     services/   classifier entity_extractor sentiment embeddings retrieval reranker evidence rag grounded_templates
                 adaptive_resolution knowledge_evolution emerging_issue intent_admin memory llm_provider taxonomy
-                evaluation analytics
+                evaluation analytics auth scope remote (gateway -> service clients) wire (service JSON format)
     utils/      logging validation errors text
   tests/        unit + integration + end-to-end tests
 frontend/
   src/ components/ pages/ hooks/ services/ types/ utils/ styles/ test/
 data/           tickets.csv knowledge_base.csv intent_taxonomy.csv support_categories.csv products.csv
                 candidate_cases.csv eval_unknown_complaints.csv telecom_support_adaptive_60000.csv (your dataset)
-scripts/        ingest_data.py validate_dataset.py migrate.py generate_embeddings.py evaluate.py verify_api.py build_seed_data.py
+scripts/        ingest_data.py validate_dataset.py migrate.py generate_embeddings.py evaluate.py verify_api.py verify_llm.py
+                create_staff_user.py build_seed_data.py
 docker-compose.yml  .env.example  .gitignore  .dockerignore  PROJECT_REQUIREMENTS_AUDIT.md
 ```
 
@@ -115,11 +139,15 @@ models (~90 MB each) from Hugging Face; they are cached afterwards.
 cp .env.example .env
 ```
 
-For local development **without PostgreSQL**, set this in `.env` (the repository's `.env` already does):
+For local development **without PostgreSQL**, set this in `.env`:
 
 ```
 DATABASE_URL=sqlite:///./data/telecom_support.db
 ```
+
+Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` (10+ characters) in `.env` so the first staff account is created on start-up,
+and sign in at `/admin` with them. Without `AUTH_SECRET_KEY`, development tokens stop working when the backend restarts;
+production (`APP_ENV=production`) refuses to start without one.
 
 ### 5. Start PostgreSQL (optional locally, used by Docker)
 
@@ -187,7 +215,8 @@ cd frontend && npm test
 backend/.venv/bin/python scripts/verify_api.py
 ```
 
-`verify_api.py` exercises all endpoints against the running backend and writes demo data; run
+`verify_api.py` signs in with the staff account from `.env`, exercises all endpoints against the running backend (and
+checks that agent endpoints refuse anonymous calls) and writes demo data; run
 `scripts/ingest_data.py --reset` afterwards for a clean database. To prove the fallbacks, run the backend suite with no
 ML models:
 
@@ -205,11 +234,19 @@ cd backend && .venv/bin/ruff check app tests ../scripts
 cd frontend && npm run lint && npm run typecheck && npm run build
 ```
 
-### 13. Run with Docker (PostgreSQL + pgvector, backend, frontend on http://localhost:8080)
+### 13. Run with Docker (PostgreSQL + pgvector, gateway, nlu, retrieval, generation, frontend on http://localhost:8080)
+
+Docker Compose needs three secrets, from the shell or a `.env` next to `docker-compose.yml`: `AUTH_SECRET_KEY`
+(32+ characters), `INTERNAL_API_TOKEN` (16+ characters) and `ADMIN_PASSWORD` (10+ characters). Generate random values with
+`python3 -c "import secrets; print(secrets.token_urlsafe(48))"`.
 
 ```bash
 docker compose up --build
 ```
+
+To run the services without Docker, start each role in its own terminal with the same `INTERNAL_API_TOKEN`:
+`SERVICE_ROLE=nlu`, `retrieval` and `generation` on ports 8011–8013, then the gateway with `SERVICE_ROLE=gateway` and
+`NLU_SERVICE_URL`, `RETRIEVAL_SERVICE_URL`, `GENERATION_SERVICE_URL` pointing at them.
 
 ### 14. Enable Gemini / AI MODE
 
@@ -221,8 +258,15 @@ GEMINI_API_KEY=your-key
 GEMINI_MODEL=gemini-2.5-flash
 ```
 
-Every Gemini answer still passes the grounding guard. If Gemini fails or times out, the deterministic evidence-only
-template is used and the answer says so.
+Every Gemini answer still passes the grounding guard. If Gemini fails or times out (one retry on HTTP 429/5xx), the
+deterministic evidence-only template is used and the answer says so. Check the live path with:
+
+```bash
+backend/.venv/bin/python scripts/verify_llm.py
+```
+
+It reports, for five sample complaints (including the use-case example), which generator answered, whether every step
+cites a retrieved source, and what the guard removed; it exits non-zero unless every answer came from the LLM.
 
 ### 15. Run demo mode (default; no API keys needed)
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from abc import ABC, abstractmethod
 
 import httpx
@@ -20,6 +21,9 @@ from app.config import get_settings
 from app.services import grounded_templates
 
 logger = logging.getLogger(__name__)
+
+RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+RETRY_DELAY_SECONDS = 1.0
 
 
 class LLMError(RuntimeError):
@@ -69,14 +73,19 @@ class GeminiProvider(LLMProvider):
             "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
             "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
         }
-        try:
-            response = httpx.post(
-                self.endpoint.format(model=self.settings.gemini_model),
-                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                json=body, timeout=self.settings.llm_timeout_seconds,
-            )
-        except httpx.HTTPError as exc:
-            raise LLMError(f"Gemini request failed: {exc.__class__.__name__}") from None
+        response = None
+        for attempt in range(2):  # one retry for rate limits and transient server errors
+            try:
+                response = httpx.post(
+                    self.endpoint.format(model=self.settings.gemini_model),
+                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                    json=body, timeout=self.settings.llm_timeout_seconds,
+                )
+            except httpx.HTTPError as exc:
+                raise LLMError(f"Gemini request failed: {exc.__class__.__name__}") from None
+            if response.status_code not in RETRYABLE_STATUS or attempt == 1:
+                break
+            time.sleep(RETRY_DELAY_SECONDS)
         if response.status_code != 200:
             raise LLMError(f"Gemini returned HTTP {response.status_code}")
         try:

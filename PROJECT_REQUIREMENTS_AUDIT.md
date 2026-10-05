@@ -4,7 +4,7 @@ Audit of every requirement in the specification against the delivered code. "Tes
 live verification actually ran in this environment (macOS, Python 3.13, Node 25, SQLite; no Docker or PostgreSQL installed).
 Anything not executed here is marked **Partial** or **No**.
 
-**Verification run (2026-10-05):** backend `pytest` 138 passed (137 passed + 1 skipped with `EMBEDDING_BACKEND=hashing RERANKER_ENABLED=false`; the skipped topic test needs the semantic model); frontend `vitest` 30 passed; `tsc`, `eslint` and `vite build` clean; `ruff` reports no errors (F/E9), only style rules from a newer ruff release; `scripts/verify_api.py` 40/40 live checks passed; the customer chat, handoff, admin inbox and review queue were exercised in a real browser; a fresh database seeded from the 60,000-row dataset (0 rejected) in ~10 s with the sentence-transformers embeddings and cross-encoder reranker loaded.
+**Verification run (2026-10-05, after Use Case 2 fixes):** backend `pytest` 184 passed (183 passed + 1 skipped with `EMBEDDING_BACKEND=hashing RERANKER_ENABLED=false`; the skipped topic test needs the semantic model); frontend `vitest` 34 passed; `tsc`, `eslint` and `vite build` clean; `ruff` reports no errors (F/E9); `scripts/verify_api.py` 43/43 live checks passed **through the split services** (gateway + nlu + retrieval + generation as four separate processes over HTTP, with staff sign-in); staff sign-in, wrong-password message and sign-out exercised in a real browser; a fresh database seeded from the 60,000-row dataset (0 rejected) with the sentence-transformers embeddings and cross-encoder reranker loaded; offline evaluation unchanged (classification and retrieval recall 100% on the held-out sample, unknown-issue detection 95%).
 
 Earlier run (2026-10-02): pytest 89, vitest 23, verify_api 40/40.
 
@@ -195,7 +195,7 @@ Earlier run (2026-10-02): pytest 89, vitest 23, verify_api 40/40.
 | 10+ candidate cases | Yes | Yes (integration) | data/candidate_cases.csv + dataset candidates | 12 authored + 10 dataset groups |
 | Known and unknown examples across all product areas | Yes | Yes (integration) | data/* |  |
 | scripts/ingest_data.py (validate, normalise, reject, insert, chunk, embed, store, index) | Yes | Yes (live API) | scripts/ingest_data.py |  |
-| Unit tests for all listed areas | Yes | Yes | backend/tests | 138 pytest tests pass (137 + 1 skipped with no ML models) |
+| Unit tests for all listed areas | Yes | Yes | backend/tests | 184 pytest tests pass (183 + 1 skipped with no ML models) |
 | Integration tests (known, unknown->retry->escalation, approval->index) | Yes | Yes | tests/test_workflows.py |  |
 | Automated E2E test for the reference complaint + unknown complaint | Yes | Yes | tests/test_e2e.py, frontend/src/test/supportFlow.test.tsx | Frontend part uses jsdom with a mocked API; real-browser verification done manually |
 
@@ -220,7 +220,7 @@ Earlier run (2026-10-02): pytest 89, vitest 23, verify_api 40/40.
 | Human handoff workflow (request, take, reply, release, close) | Yes | Yes (unit + integration) | backend/app/services/handoff.py, api/conversations.py | tests/test_handoff.py; verified live across two browser tabs |
 | Escalation after max attempts / critical issue routes the chat to the inbox | Yes | Yes (integration) | adaptive_resolution.feedback/resolve | |
 | Reviewer decision is announced in the customer chat | Yes | Yes (integration) | knowledge_evolution.approve/reject | |
-| Authentication for the admin portal | No | No | n/a | Not implemented (out of scope); documented |
+| Authentication for the admin portal | Yes | Yes (unit + integration + browser) | services/auth.py, api/auth.py, dependencies.require_staff, pages/LoginPage.tsx | PBKDF2 passwords, HMAC-signed expiring tokens, lockout; every agent endpoint returns 401 without a staff token (tests/test_auth.py); customer endpoints stay public |
 
 ## Feature checklist (52 items)
 
@@ -304,9 +304,21 @@ Earlier run (2026-10-02): pytest 89, vitest 23, verify_api 40/40.
 | 47 | FastAPI with SQLite, or PostgreSQL + pgvector | Done | backend/app/database.py | SQLite run; PostgreSQL not run here |
 | 48 | React + TypeScript frontend | Done | frontend/ | Build, tests |
 | 49 | Validates the 60K dataset on load, fair splits | Done | ingestion.py, utils/validation.py | 60,000 valid / 0 rejected |
-| 50 | Docker setup | Done | docker-compose.yml, backend/Dockerfile, frontend/Dockerfile, .dockerignore | Not run (Docker not installed) |
-| 51 | Backend and frontend tests | Done | backend/tests, frontend/src/test | 138 backend + 30 frontend passing |
+| 50 | Docker setup | Done | docker-compose.yml (postgres, gateway, nlu, retrieval, generation, frontend), backend/Dockerfile, frontend/Dockerfile, .dockerignore | Compose file validated; not run (Docker not installed). The same four roles were run as separate local processes |
+| 51 | Backend and frontend tests | Done | backend/tests, frontend/src/test | 184 backend + 34 frontend passing |
 | 52 | README and requirements audit | Done | README.md, this file | — |
+
+## Use Case 2: Intelligent Support Ticket Resolution Assistant
+
+| Requirement | Status | Where | Verified |
+|---|---|---|---|
+| Agent pastes a raw complaint and gets help back | Done | Admin → Test the assistant (pages/SupportPage.tsx), POST /api/v1/resolve (staff sign-in) | Browser, API, tests |
+| 1. Intent/category, product, severity, sentiment | Done | nlu service: classifier.py, sentiment.py, entity_extractor.py | Reference complaint → broadband_disconnects / Internet / broadband / high / frustrated, plus time, frequency, device, "already restarted the router", "work from home" |
+| 2a. Semantic retrieval of similar resolved tickets and articles | Done | retrieval service: retrieval.py (vector + BM25 + metadata), reranker.py | Live: "my connection keeps cutting out at night" and "the web stops working every evening" (no keyword "broadband" or "router") both retrieve the broadband-disconnect tickets and KB-031; tests compare split vs in-process results |
+| 2b. LLM drafts a grounded, step-by-step, cited resolution from historical resolution steps | Done (live LLM not verified) | generation service: rag.py, llm_provider.GeminiProvider, grounding guard | Simulated Gemini: invented steps and fake citations removed; demo mode uses the evidence-only template; `scripts/verify_llm.py` for the live check |
+| 3. Evolving data and ticket classes | Done | knowledge_evolution.py (review → article + dataset, versioning, customer wording), emerging_issue.py + intent_admin.py (new issue types), index fingerprint | Tests + API |
+| Microservice-based | Done | gateway, nlu, retrieval, generation (SERVICE_ROLE), docker-compose.yml, api/internal.py, services/remote.py | tests/test_service_split.py; 43/43 live checks across four processes |
+| Production-grade basics | Done | Staff sign-in, internal service token, secrets required in production, request size limits, structured errors, health per service, graceful degradation | tests/test_auth.py, tests/test_service_split.py |
 
 ## Totals
 
@@ -322,10 +334,12 @@ Earlier run (2026-10-02): pytest 89, vitest 23, verify_api 40/40.
 1. **Docker / PostgreSQL / pgvector at runtime**: Docker and PostgreSQL are not installed on this machine. The schema was
    compiled for the PostgreSQL dialect (embedding columns become `VECTOR(384)`) and the SQLite + in-memory cosine path is
    fully tested, but `docker compose up` and the pgvector SQL query were not executed.
-2. **Gemini (AI MODE)**: no API key was available. The REST provider is implemented; its failure fallback and the grounding guard
-   are tested, but no real Gemini response was validated.
+2. **Gemini (AI MODE)**: no API key was available. The provider's HTTP contract (request shape, key in a header, JSON and
+   code-fenced parsing, one retry on 429/5xx, blocked and malformed responses), its fallback, the grounding guard on a
+   simulated Gemini answer and taxonomy-constrained LLM classification are tested with a simulated API
+   (tests/test_llm_gemini.py), but no real Gemini response was validated. Run `scripts/verify_llm.py` once a key is set.
 3. **Voice input**: tested with a simulated Web Speech API in jsdom; a real microphone session was not exercised.
 4. **Migrations** use an idempotent `scripts/migrate.py` (create tables + enable pgvector), not Alembic revisions.
 5. **Metrics on synthetic data are optimistic**: the dataset has about 86 complaint templates and an intent-disjoint split, so
    the 100% classification and retrieval scores on the held-out sample reflect template simplicity, not real-world accuracy.
-6. **Authentication / roles** for reviewer and admin actions are out of scope and not implemented.
+6. **Roles**: every staff account has the same permissions (no separate reviewer/agent/admin roles).

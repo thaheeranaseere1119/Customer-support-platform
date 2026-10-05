@@ -7,13 +7,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import RUNTIME_TUNABLE, get_settings, update_runtime_settings
-from app.dependencies import get_container, get_db
+from app.dependencies import get_container, get_db, require_staff
 from app.models import SystemLog
 from app.schemas.common import StrictModel
 from app.utils.errors import ValidationFailed
 from app.utils.logging import log_event
 
-router = APIRouter(tags=["system"])
+router = APIRouter(tags=["system"], dependencies=[Depends(require_staff)])
 
 
 class SettingsUpdate(StrictModel):

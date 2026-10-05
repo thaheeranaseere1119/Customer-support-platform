@@ -47,7 +47,8 @@ export function CandidatesPage() {
   const approve = useMutation({
     mutationFn: () => api.approve(active!.id, { reviewer: form.reviewer, notes: form.notes || undefined, title: form.title, content: form.content, intent: form.intent || undefined }),
     onSuccess: (r) => {
-      const parts = [r.article ? `Published as ${r.article.article_id}` : "Approved",
+      const parts = [r.article ? `Published as ${r.article.article_id}`
+        : r.updated_article ? `Added the customer's wording to ${r.updated_article.article_id} (v${r.updated_article.version})` : "Approved",
         r.dataset_record_id ? `added to the dataset as ${r.dataset_record_id}` : ""].filter(Boolean);
       notify(`${parts.join(" and ")}. The assistant can use it now.`, "success"); done();
     },
@@ -60,6 +61,7 @@ export function CandidatesPage() {
   });
   const openReview = (c: Candidate) => { setActive(c); setForm({ title: c.proposed_title, content: buildContent(c), intent: c.intent === "unknown" ? "" : c.intent, notes: "", reviewer: "support-lead" }); };
   const pending = active?.status === "pending_review";
+  const articleCited = active?.sources.find((x) => x.source_type === "knowledge_base")?.source_id;
   const counts = list.data?.counts ?? {};
   const originCounts = list.data?.origin_counts ?? {};
   const activeStep = STEPS.findIndex((st) => st.status === tab && st.origin === origin);
@@ -114,7 +116,7 @@ export function CandidatesPage() {
         footer={pending ? <>
           <button type="button" className="btn btn-danger" disabled={reject.isPending || approve.isPending} onClick={() => reject.mutate()}>Reject</button>
           <button type="button" className="btn btn-success" disabled={approve.isPending || reject.isPending || form.title.trim().length < 3 || form.content.trim().length < 10} onClick={() => approve.mutate()}>
-            <Icon name="check" size={16} />{approve.isPending ? "Saving…" : active?.origin === "kb_match" ? "Approve and add to dataset" : "Approve and publish"}</button></> : undefined}>
+            <Icon name="check" size={16} />{approve.isPending ? "Saving…" : active?.origin === "kb_match" ? "Approve and add to article" : "Approve and publish"}</button></> : undefined}>
         {active && <>
           <div className="row"><span className="badge badge-neutral">{ORIGIN_LABEL[active.origin] ?? humanize(active.origin)}</span><span className="badge badge-neutral">Evidence {score(active.evidence_score)}</span>
             <span className="badge badge-neutral">Feedback: {humanize(active.customer_feedback)}</span><span className="badge badge-neutral">Seen {num(active.occurrences)}×</span>
@@ -124,7 +126,9 @@ export function CandidatesPage() {
           {pending && LIVE_ORIGINS.includes(active.origin) && (
             <div className="followup-box small"><div>
               {active.origin === "kb_match"
-                ? <>This is a new question that an existing article already answered. Approving adds it to the dataset as a new example; no new article is created.</>
+                ? <>This is a new question that an existing article{articleCited ? ` (${articleCited})` : ""} already answered. Approving adds the
+                    customer's wording to that article as a new version, so customers who describe the problem this way find it, and adds the
+                    case to the dataset. No duplicate article is created.</>
                 : <>Approving publishes a help article and adds this case to the dataset.</>}
               {agentFix && <> These steps are the agent's chat replies to one customer. <strong>Rewrite them as general steps</strong> (remove anything
                 specific to this customer, such as a refund already issued) before publishing.</>}

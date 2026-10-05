@@ -28,17 +28,24 @@ def health() -> dict:
                     KnowledgeArticle.status == "ACTIVE", KnowledgeArticle.is_latest.is_(True))) or 0
         except Exception:
             db_ok = False
+    remote = {name: client.health().get("status", "unavailable") for name, client in (
+        ("nlu", getattr(s.classifier, "remote", None)), ("retrieval", getattr(s.retrieval, "remote", None)),
+        ("generation", getattr(s.rag, "remote", None))) if client is not None}
+    mode = getattr(s.rag, "mode_label", settings.mode_label)  # split: the generation service holds the LLM key
     degraded = (not db_ok or db_state.using_fallback or s.embeddings.backend != "sentence_transformers"
-                or (settings.reranker_enabled and not s.reranker.active))
+                or (settings.reranker_enabled and not s.reranker.active)
+                or any(status != "ok" for status in remote.values()))
     return {
         "status": "ok" if not degraded else "degraded",
         "app": settings.app_name,
         "version": settings.app_version,
         "environment": settings.app_env,
-        "mode": settings.mode_label,
-        "demo_mode": not settings.ai_mode,
+        "mode": mode,
+        "demo_mode": mode != "AI MODE",
         "llm_provider": s.rag.provider.name,
-        "gemini_configured": settings.has_gemini_key,
+        "gemini_configured": settings.has_gemini_key if not remote.get("generation") else mode == "AI MODE",
+        "service_role": settings.service_role,
+        "services": remote,
         "database": {"available": db_ok, "backend": db_state.url_backend, "using_fallback": db_state.using_fallback,
                      "pgvector": db_state.pgvector, "error": db_state.error},
         "embeddings": s.embeddings.status(),

@@ -263,7 +263,7 @@ export interface Candidate {
   reviewed_at: string | null;
 }
 
-export interface ReviewResult { item_id: string; status: string; article: KnowledgeArticle | null; indexed: boolean; index_version: number | null; dataset_record_id?: string | null }
+export interface ReviewResult { item_id: string; status: string; article: KnowledgeArticle | null; indexed: boolean; index_version: number | null; dataset_record_id?: string | null; updated_article?: KnowledgeArticle | null }
 
 export interface EmergingIssue {
   id: string;

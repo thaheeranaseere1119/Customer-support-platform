@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { TopNavigation } from "./components/TopNavigation";
 import { useSession } from "./hooks/useSession";
+import { useStaffToken } from "./hooks/useStaffSession";
 import { api } from "./services/api";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { CandidatesPage } from "./pages/CandidatesPage";
@@ -13,6 +14,7 @@ import { EmergingPage } from "./pages/EmergingPage";
 import { InboxPage } from "./pages/InboxPage";
 import { IntentsPage } from "./pages/IntentsPage";
 import { KnowledgePage } from "./pages/KnowledgePage";
+import { LoginPage } from "./pages/LoginPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SupportPage } from "./pages/SupportPage";
 import { ArticlePage } from "./site/ArticlePage";
@@ -21,10 +23,17 @@ import { NotFoundPage } from "./site/NotFoundPage";
 import { SiteLayout } from "./site/SiteLayout";
 import { TopicPage } from "./site/TopicPage";
 import "./site/site.css";
+/** Admin portal: staff must sign in; the customer site stays public. */
+function AdminGate() {
+  const token = useStaffToken();
+  return token ? <AdminApp key={token} /> : <LoginPage />;
+}
+
 /** Admin portal: everything except the customer chat. */
 function AdminApp() {
   const { sessionId, reset } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  useQuery({ queryKey: ["me"], queryFn: api.me, retry: false, staleTime: 300_000 }); // a rejected token signs out
   const health = useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 30000, retry: 1 });
   const analytics = useQuery({ queryKey: ["analytics"], queryFn: api.analytics, refetchInterval: 30000, retry: 1 });
   const inbox = useQuery({ queryKey: ["inbox", "badge"], queryFn: () => api.inbox({ handoff_status: "needs_agent" }), refetchInterval: 5000, retry: 1 });
@@ -64,7 +73,7 @@ function AdminApp() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/admin/*" element={<AdminApp />} />
+      <Route path="/admin/*" element={<AdminGate />} />
       <Route element={<SiteLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/user" element={<HomePage />} />

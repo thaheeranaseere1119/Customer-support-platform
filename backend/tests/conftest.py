@@ -26,7 +26,15 @@ os.environ.update({
     "DATASET_PATH": str(_TMP / "tickets.csv"),
     "AUTO_SEED": "true",
     "LOG_LEVEL": "WARNING",
+    # Test-only staff account and signing key (never used outside this temporary test database).
+    "AUTH_ENABLED": "true",
+    "AUTH_SECRET_KEY": "test-signing-key-" + uuid.uuid4().hex,
+    "ADMIN_USERNAME": "qa-lead",
+    "ADMIN_PASSWORD": "test-" + uuid.uuid4().hex,
+    "ADMIN_DISPLAY_NAME": "QA Lead",
 })
+STAFF_CREDENTIALS = {"username": os.environ["ADMIN_USERNAME"], "password": os.environ["ADMIN_PASSWORD"]}
+ANONYMOUS = {"Authorization": ""}  # per-request header override: call an endpoint as a customer
 
 
 @pytest.fixture(scope="session")
@@ -36,6 +44,10 @@ def client():
     from app.main import app
 
     with TestClient(app) as test_client:
+        # Most tests exercise agent features, so the shared client is signed in as staff.
+        login = test_client.post("/api/v1/auth/login", json=STAFF_CREDENTIALS)
+        assert login.status_code == 200, login.text
+        test_client.headers["Authorization"] = f"Bearer {login.json()['token']}"
         yield test_client
 
 

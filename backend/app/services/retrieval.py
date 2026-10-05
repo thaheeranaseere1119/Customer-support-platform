@@ -19,7 +19,7 @@ from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass, field
 
 import numpy as np
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -148,6 +148,7 @@ class RetrievalService:
         self._matrix: np.ndarray | None = None
         self._bm25 = BM25Index()
         self._dirty = True
+        self._built_signature: tuple | None = None
         self._lock = threading.RLock()
         self.version = 0
         self.last_built_at: float | None = None
@@ -156,11 +157,18 @@ class RetrievalService:
     def mark_dirty(self) -> None:
         self._dirty = True
 
+    @staticmethod
+    def _signature(db: Session) -> tuple:
+        """Changes whenever any process adds, edits or deactivates a chunk (separate workers or services)."""
+        active = select(func.count()).select_from(DocumentChunk).where(DocumentChunk.is_active.is_(True))
+        return (db.scalar(active), db.scalar(select(func.max(DocumentChunk.updated_at))))
+
     def ensure_index(self, db: Session) -> None:
-        if not self._dirty:
+        signature = self._signature(db)
+        if not self._dirty and signature == self._built_signature:
             return
         with self._lock:
-            if not self._dirty:
+            if not self._dirty and signature == self._built_signature:
                 return
             self._reembed_stale(db)
             rows = db.scalars(select(DocumentChunk).where(DocumentChunk.is_active.is_(True)).order_by(DocumentChunk.id)).all()
@@ -176,6 +184,7 @@ class RetrievalService:
             self.version += 1
             self.last_built_at = time.time()
             self._dirty = False
+            self._built_signature = self._signature(db)
             logger.info("Retrieval index built", extra={"fields": {"documents": len(docs), "index_version": self.version}})
 
     def _reembed_stale(self, db: Session) -> None:

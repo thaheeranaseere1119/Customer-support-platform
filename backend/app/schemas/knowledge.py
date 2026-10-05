@@ -73,6 +73,7 @@ class ReviewResult(BaseModel):
     indexed: bool
     index_version: int | None = None
     dataset_record_id: str | None = None
+    updated_article: KnowledgeArticleOut | None = None  # existing article that gained the customer's wording
 
 
 class CandidateOut(BaseModel):

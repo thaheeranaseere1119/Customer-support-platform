@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_container, get_db
+from app.dependencies import get_container, get_db, require_staff
 from app.schemas.emerging_issue import (
     EmergingIssueOut,
     IntentCreate,
@@ -11,7 +11,7 @@ from app.schemas.emerging_issue import (
     StatusUpdate,
 )
 
-router = APIRouter(tags=["emerging-issues"])
+router = APIRouter(tags=["emerging-issues"], dependencies=[Depends(require_staff)])
 
 
 @router.get("/emerging-issues", response_model=list[EmergingIssueOut])

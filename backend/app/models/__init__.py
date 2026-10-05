@@ -7,6 +7,7 @@ from app.models.feedback import Feedback
 from app.models.intent import IntentTaxonomy, ProductCatalog, SupportCategory
 from app.models.knowledge import DocumentChunk, KnowledgeArticle
 from app.models.resolution_attempt import ResolutionAttempt
+from app.models.staff import StaffUser
 from app.models.ticket import Ticket
 
 __all__ = [
@@ -23,6 +24,7 @@ __all__ = [
     "ProductCatalog",
     "ResolutionAttempt",
     "SupportCase",
+    "StaffUser",
     "SupportCategory",
     "SystemLog",
     "Ticket",

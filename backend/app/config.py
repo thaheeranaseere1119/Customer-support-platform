@@ -48,6 +48,27 @@ class Settings(BaseSettings):
     demo_dataset_path: str = str(DATA_DIR / "tickets.csv")
     knowledge_base_path: str = str(DATA_DIR / "knowledge_base.csv")
 
+    # --- Service split ------------------------------------------------------
+    # all: one process runs everything (local development, tests). In Docker the same image runs as
+    # gateway (public + admin API) and three internal services: nlu, retrieval and generation.
+    service_role: Literal["all", "gateway", "nlu", "retrieval", "generation"] = "all"
+    nlu_service_url: str | None = None          # gateway -> nlu (classification)
+    retrieval_service_url: str | None = None    # gateway -> retrieval (hybrid search + re-ranking)
+    generation_service_url: str | None = None   # gateway -> generation (LLM draft + grounding guard)
+    internal_api_token: SecretStr | None = None  # shared secret on every internal call
+    internal_timeout_seconds: float = 60.0
+
+    # --- Staff authentication (admin console and agent APIs) ---------------
+    auth_enabled: bool = True
+    auth_secret_key: SecretStr | None = None  # signs login tokens; required in production
+    auth_token_hours: float = 12.0
+    auth_max_failed_logins: int = 5
+    auth_lockout_minutes: float = 10.0
+    # First staff account, created on start-up only while no staff account exists.
+    admin_username: str | None = None
+    admin_password: SecretStr | None = None
+    admin_display_name: str = "Support lead"
+
     # --- LLM ---------------------------------------------------------------
     gemini_api_key: SecretStr | None = None
     gemini_model: str = "gemini-2.5-flash"
@@ -143,6 +164,16 @@ class Settings(BaseSettings):
             raise ValueError("Evidence weights must sum to 1.0")
         if self.max_resolution_attempts < 1:
             raise ValueError("MAX_RESOLUTION_ATTEMPTS must be >= 1")
+        if self.app_env == "production" and self.auth_enabled:
+            secret = self.auth_secret_key.get_secret_value() if self.auth_secret_key else ""
+            if len(secret) < 32:
+                raise ValueError("AUTH_SECRET_KEY (at least 32 characters) is required in production")
+        uses_services = any((self.nlu_service_url, self.retrieval_service_url, self.generation_service_url))
+        if (self.service_role in ("nlu", "retrieval", "generation") or uses_services) and not (
+                self.internal_api_token and len(self.internal_api_token.get_secret_value()) >= 16):
+            raise ValueError("INTERNAL_API_TOKEN (at least 16 characters) is required when services are split")
+        if self.admin_password is not None and len(self.admin_password.get_secret_value()) < 10:
+            raise ValueError("ADMIN_PASSWORD must be at least 10 characters")
         return self
 
     # --- Derived -----------------------------------------------------------

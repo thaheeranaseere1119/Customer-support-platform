@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import (
     analytics,
+    auth,
     conversations,
     emerging_issues,
     feedback,
@@ -23,6 +24,7 @@ from app.api import (
     resolve,
     system,
 )
+from app.api.internal import ROLE_ROUTERS, health_router
 from app.config import get_settings
 from app.database import create_all, db_state, init_engine, session_scope
 from app.dependencies import get_container
@@ -33,19 +35,28 @@ logger = logging.getLogger("telecom.app")
 API_PREFIX = "/api/v1"
 
 
-def warm_up() -> None:
-    """Load models and build the retrieval index so the first request is fast."""
-    container = get_container()
-    s = container.services
+INTERNAL_MAX_REQUEST_BYTES = 4 * 1024 * 1024  # internal calls carry retrieved documents and query vectors
+
+
+def warm_up(role: str) -> None:
+    """Load what this role uses and build the retrieval index so the first request is fast."""
+    s = get_container().services
+    if role == "generation":
+        return  # the LLM client is created per request; no models or database
     s.embeddings.load()
-    s.reranker.load()
-    if db_state.available:
+    if role in ("all", "retrieval"):
+        s.reranker.load()
+    if role in ("all", "gateway", "retrieval") and db_state.available:
         with session_scope() as db:
             s.retrieval.ensure_index(db)
 
 
-def bootstrap() -> None:
+def bootstrap(role: str) -> None:
+    """Start-up work for this role. Only the gateway (or the all-in-one process) seeds data and creates accounts."""
     settings = get_settings()
+    if role == "generation":
+        warm_up(role)
+        return
     try:
         init_engine()
         create_all()
@@ -53,6 +64,12 @@ def bootstrap() -> None:
         db_state.available = False
         db_state.error = f"Database initialisation failed ({exc.__class__.__name__})"
         logger.error("Database unavailable at startup; API will return DATABASE_UNAVAILABLE errors")
+        return
+    if role in ("nlu", "retrieval"):
+        try:
+            warm_up(role)
+        except Exception:
+            logger.exception("Warm-up failed; services will initialise lazily")
         return
     if settings.auto_seed:
         from app.ingestion import database_is_empty, run_ingestion
@@ -65,7 +82,6 @@ def bootstrap() -> None:
         except Exception:
             logger.exception("Automatic seeding failed; run scripts/ingest_data.py manually")
     try:  # existing databases pick up new product keywords from data/products.csv
-        from app.database import session_scope
         from app.ingestion import sync_products
 
         with session_scope() as db:
@@ -73,16 +89,26 @@ def bootstrap() -> None:
     except Exception:
         logger.exception("Product keyword sync failed")
     try:
-        warm_up()
+        from app.services.auth import ensure_first_user
+
+        with session_scope() as db:
+            ensure_first_user(db)
+    except Exception:
+        logger.exception("Could not create the first staff account")
+    try:
+        warm_up(role)
     except Exception:
         logger.exception("Warm-up failed; services will initialise lazily")
 
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    configure_logging(get_settings().log_level)
-    await asyncio.to_thread(bootstrap)
-    yield
+def make_lifespan(role: str):
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        configure_logging(get_settings().log_level)
+        await asyncio.to_thread(bootstrap, role)
+        yield
+
+    return lifespan
 
 
 class BodySizeLimitMiddleware:
@@ -125,11 +151,20 @@ class _TooLarge(Exception):
     pass
 
 
-def create_app() -> FastAPI:
+def create_app(role: str | None = None, services=None) -> FastAPI:
+    """The gateway / all-in-one API, or one internal service (nlu, retrieval, generation) for SERVICE_ROLE.
+
+    `services` (a callable returning the Services to use) lets an internal service run beside a gateway in one
+    process, as the tests do; a deployed service uses its own process container.
+    """
     settings = get_settings()
+    role = role or settings.service_role
+    internal = role in ROLE_ROUTERS
     configure_logging(settings.log_level)
-    app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan,
-                  docs_url=f"{API_PREFIX}/docs", openapi_url=f"{API_PREFIX}/openapi.json")
+    title = settings.app_name if not internal else f"Support IQ {role} service"
+    app = FastAPI(title=title, version=settings.app_version, lifespan=make_lifespan(role),
+                  docs_url=f"{API_PREFIX}/docs" if not internal else None,
+                  openapi_url=f"{API_PREFIX}/openapi.json" if not internal else None)
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):
@@ -148,10 +183,13 @@ def create_app() -> FastAPI:
         response.headers["Referrer-Policy"] = "no-referrer"
         return response
 
-    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_request_bytes)
-    app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=False,
-                       allow_methods=["GET", "POST", "PUT"], allow_headers=["Content-Type", "X-Request-ID"],
-                       expose_headers=["X-Request-ID"])
+    app.add_middleware(BodySizeLimitMiddleware,
+                       max_bytes=INTERNAL_MAX_REQUEST_BYTES if internal else settings.max_request_bytes)
+    if not internal:  # internal services are never called from a browser
+        app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=False,
+                           allow_methods=["GET", "POST", "PUT"],
+                           allow_headers=["Content-Type", "X-Request-ID", "Authorization"],
+                           expose_headers=["X-Request-ID"])
 
     def rid(request: Request) -> str | None:
         return getattr(request.state, "request_id", None) or request_id_var.get()
@@ -191,7 +229,13 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=500, content=error_body(
             "INTERNAL_ERROR", "Something went wrong while processing the request.", rid(request)))
 
-    for module in (health, resolve, feedback, knowledge, conversations, emerging_issues, intents, analytics, system):
+    if internal:
+        provider = {"services": services} if services else {}
+        app.include_router(health_router(role, **provider))
+        app.include_router(ROLE_ROUTERS[role](**provider))
+        return app
+
+    for module in (health, auth, resolve, feedback, knowledge, conversations, emerging_issues, intents, analytics, system):
         app.include_router(module.router, prefix=API_PREFIX)
 
     @app.get("/")

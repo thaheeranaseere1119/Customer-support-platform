@@ -3,6 +3,7 @@ import type {
   EmergingIssue, EvaluationRun, InboxItem, FeedbackOutcome, FeedbackResponse, Health, IntentCreatePayload, IntentsResponse,
   InputMode, KnowledgeArticle, KnowledgeDetail, Paged, ResolveResponse, ReviewResult, SettingsResponse, StreamEvent, SystemLog,
 } from "../types/api";
+import { getStaffToken, setStaffToken } from "../hooks/useStaffSession";
 
 const BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "") + "/api/v1";
 
@@ -27,7 +28,14 @@ const FRIENDLY: Record<string, string> = {
   DATABASE_UNAVAILABLE: "The database is temporarily unavailable. Please try again shortly.",
 };
 
+/** JSON headers plus the staff token when an agent is signed in. */
+function headers(extra?: HeadersInit): HeadersInit {
+  const token = getStaffToken();
+  return { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(extra || {}) };
+}
+
 async function parseError(response: Response): Promise<ApiError> {
+  if (response.status === 401 && getStaffToken()) setStaffToken(null); // expired or revoked: back to sign-in
   try {
     const body = await response.json();
     const err = body?.error;
@@ -51,7 +59,7 @@ async function request<T>(path: string, init: RequestInit & { timeoutMs?: number
     response = await fetch(`${BASE}${path}`, {
       ...init,
       signal: init.signal ?? controller.signal,
-      headers: { "Content-Type": "application/json", ...(init.headers || {}) },
+      headers: headers(init.headers),
     });
   } catch (error) {
     const aborted = (error as Error)?.name === "AbortError";
@@ -81,7 +89,7 @@ async function streamOrFallback(streamPath: string, plainPath: string, body: unk
   onEvent: (event: StreamEvent) => void): Promise<ResolveResponse> {
   let response: Response | null = null;
   try {
-    response = await fetch(`${BASE}${streamPath}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    response = await fetch(`${BASE}${streamPath}`, { method: "POST", headers: headers(), body: JSON.stringify(body) });
   } catch {
     response = null;
   }
@@ -114,7 +122,12 @@ async function streamOrFallback(streamPath: string, plainPath: string, body: unk
   return result;
 }
 
+export interface StaffUser { username: string; display_name: string }
+
 export const api = {
+  login: (username: string, password: string) =>
+    post<{ token: string; expires_at: number; user: StaffUser }>("/auth/login", { username, password }),
+  me: () => request<{ user: StaffUser }>("/auth/me"),
   health: () => request<Health>("/health", { timeoutMs: 10000 }),
   resolveStream: (body: { session_id: string; complaint: string; guided_category?: string | null; input_mode: InputMode },
     onEvent: (e: StreamEvent) => void) => streamOrFallback("/resolve/stream", "/resolve", body, onEvent),

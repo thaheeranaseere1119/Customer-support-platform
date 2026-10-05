@@ -5,9 +5,13 @@ import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
 
+from fastapi import Depends, Header
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.database import db_state, get_sessionmaker
+from app.models.staff import StaffUser
+from app.services import auth
 from app.services.adaptive_resolution import AdaptiveResolutionService, Services
 from app.services.classifier import ClassificationService
 from app.services.embeddings import get_embedding_service
@@ -37,13 +41,30 @@ _lock = threading.Lock()
 
 
 def build_container() -> Container:
+    """In-process services, except where a *_SERVICE_URL points the gateway at a separate service."""
+    settings = get_settings()
     embeddings = get_embedding_service()
-    retrieval = RetrievalService(embeddings)
     llm = get_llm_provider()
+    if settings.retrieval_service_url:
+        from app.services.remote import RemoteReranker, RemoteRetrieval, ServiceClient
+        client = ServiceClient("retrieval", settings.retrieval_service_url)
+        retrieval, reranker = RemoteRetrieval(client, embeddings), RemoteReranker(client)
+    else:
+        retrieval, reranker = RetrievalService(embeddings), RerankerService()
+    if settings.nlu_service_url:
+        from app.services.remote import RemoteClassifier, ServiceClient
+        classifier = RemoteClassifier(ServiceClient("nlu", settings.nlu_service_url), embeddings, llm)
+    else:
+        classifier = ClassificationService(embeddings, llm)
+    if settings.generation_service_url:
+        from app.services.remote import RemoteRAG, ServiceClient
+        rag = RemoteRAG(ServiceClient("generation", settings.generation_service_url))
+    else:
+        rag = RAGService(llm)
     knowledge = KnowledgeService(embeddings, retrieval)
     services = Services(
-        embeddings=embeddings, reranker=RerankerService(), retrieval=retrieval, evidence=EvidenceScoringService(),
-        classifier=ClassificationService(embeddings, llm), rag=RAGService(llm), memory=MemoryService(),
+        embeddings=embeddings, reranker=reranker, retrieval=retrieval, evidence=EvidenceScoringService(),
+        classifier=classifier, rag=rag, memory=MemoryService(),
         knowledge=knowledge, emerging=EmergingIssueService(embeddings),
     )
     return Container(services=services, pipeline=AdaptiveResolutionService(services),
@@ -73,3 +94,22 @@ def get_db() -> Iterator[Session]:
         yield session
     finally:
         session.close()
+
+
+def _bearer(authorization: str | None) -> str | None:
+    if authorization and authorization.lower().startswith("bearer "):
+        return authorization[7:].strip() or None
+    return None
+
+
+def optional_staff(authorization: str | None = Header(None), db: Session = Depends(get_db)) -> StaffUser | None:
+    """The signed-in staff member, or None for customers (an invalid token is still rejected)."""
+    token = _bearer(authorization)
+    return auth.user_for_token(db, token) if token else None
+
+
+def require_staff(user: StaffUser | None = Depends(optional_staff)) -> StaffUser | None:
+    """Admin console and agent endpoints. Returns None only when AUTH_ENABLED=false."""
+    if user is None and get_settings().auth_enabled:
+        raise auth.Unauthorized("Please sign in to the agent workspace.")
+    return user

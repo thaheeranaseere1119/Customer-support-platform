@@ -1,5 +1,35 @@
-# PostgreSQL + pgvector, FastAPI backend, React frontend (served by nginx).
-# Usage: docker compose up --build      ->  http://localhost:8080
+# PostgreSQL + pgvector, the API gateway, three internal services and the React frontend (served by nginx).
+#
+#   browser ──► frontend (nginx :8080) ──► gateway (:8000, public + admin API, sign-in, chats, cases)
+#                                             ├──► nlu         intent, category, product, severity, sentiment
+#                                             ├──► retrieval   hybrid semantic search + re-ranking
+#                                             └──► generation  LLM draft + grounding guard (holds the LLM key)
+#
+# The internal services publish no ports and accept only calls that carry INTERNAL_API_TOKEN.
+# Usage (secrets in the shell or a .env file next to this file):
+#   AUTH_SECRET_KEY=... INTERNAL_API_TOKEN=... ADMIN_PASSWORD=... docker compose up --build   ->  http://localhost:8080
+x-backend: &backend
+  build: { context: ., dockerfile: backend/Dockerfile }
+  image: support-iq-backend
+  restart: unless-stopped
+
+x-internal-env: &internal-env
+  APP_ENV: production
+  DATABASE_URL: postgresql://telecom:telecom@postgres:5432/telecom_support
+  DB_FALLBACK_TO_SQLITE: "false"
+  DB_CONNECT_RETRIES: "30"
+  PGVECTOR_ENABLED: "true"
+  HF_HUB_OFFLINE: "1"
+  AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:?set AUTH_SECRET_KEY (32+ characters)}
+  INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN (16+ characters)}
+
+x-internal-health: &internal-health
+  test: ["CMD", "python", "-c", "import os,sys,urllib.request as u; r=u.Request('http://127.0.0.1:8000/internal/v1/health', headers={'X-Internal-Token': os.environ['INTERNAL_API_TOKEN']}); sys.exit(0 if u.urlopen(r, timeout=4).status == 200 else 1)"]
+  interval: 15s
+  timeout: 5s
+  start_period: 120s
+  retries: 5
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -7,7 +37,6 @@ services:
       POSTGRES_USER: telecom
       POSTGRES_PASSWORD: telecom
       POSTGRES_DB: telecom_support
-    ports: ["5432:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U telecom -d telecom_support"]
@@ -15,25 +44,58 @@ services:
       timeout: 5s
       retries: 20
 
-  backend:
-    build: { context: ., dockerfile: backend/Dockerfile }
+  nlu:
+    <<: *backend
     environment:
-      APP_ENV: production
+      <<: *internal-env
+      SERVICE_ROLE: nlu
       DEMO_MODE: ${DEMO_MODE:-true}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      DATABASE_URL: postgresql://telecom:telecom@postgres:5432/telecom_support
-      DB_FALLBACK_TO_SQLITE: "false"
-      DB_CONNECT_RETRIES: "30"
-      PGVECTOR_ENABLED: "true"
-      AUTO_SEED: "true"
-      CORS_ORIGINS: http://localhost:8080
-      HF_HUB_OFFLINE: "1"
     depends_on:
       postgres: { condition: service_healthy }
+    healthcheck: *internal-health
+
+  retrieval:
+    <<: *backend
+    environment:
+      <<: *internal-env
+      SERVICE_ROLE: retrieval
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck: *internal-health
+
+  generation:
+    <<: *backend
+    environment:
+      <<: *internal-env
+      SERVICE_ROLE: generation
+      DEMO_MODE: ${DEMO_MODE:-true}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    healthcheck: *internal-health
+
+  backend:
+    <<: *backend
+    environment:
+      <<: *internal-env
+      SERVICE_ROLE: gateway
+      AUTO_SEED: "true"
+      CORS_ORIGINS: http://localhost:8080
+      NLU_SERVICE_URL: http://nlu:8000
+      RETRIEVAL_SERVICE_URL: http://retrieval:8000
+      GENERATION_SERVICE_URL: http://generation:8000
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD (10+ characters) for the first staff account}
+      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Support lead}
+    depends_on:
+      postgres: { condition: service_healthy }
+      nlu: { condition: service_healthy }
+      retrieval: { condition: service_healthy }
+      generation: { condition: service_healthy }
     ports: ["8000:8000"]
 
   frontend:
     build: { context: ./frontend }
+    restart: unless-stopped
     depends_on:
       backend: { condition: service_healthy }
     ports: ["8080:80"]
