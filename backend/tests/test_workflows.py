@@ -1,8 +1,10 @@
 """Integration tests for the adaptive workflow, knowledge evolution, memory,
 emerging issues and intent creation."""
+import pytest
 from sqlalchemy import func, select
 
 from app.models import CandidateCase, Feedback, ResolutionAttempt
+from app.services.embeddings import get_embedding_service
 from tests.conftest import feedback, resolve
 
 
@@ -329,3 +331,91 @@ def test_candidates_for_published_knowledge_are_approved_not_pending(client):
     # Resolved patterns no longer surface as open emerging issues.
     open_issues = [i for i in client.get("/api/v1/emerging-issues").json() if i["status"] in ("NEW", "UNDER_REVIEW")]
     assert all("mobile_data" not in i["suggested_intent_name"] for i in open_issues)
+
+
+def test_short_question_about_another_topic_is_not_a_follow_up(client, session_id):
+    first = resolve(client, session_id, "I was charged twice")
+    assert first["analysis"]["intent"] == "billing_dispute"
+    calls = resolve(client, session_id, "I cant make calls during night")  # 6 words, but about calls, not billing
+    assert calls["analysis"]["classification_method"] != "memory_carryover"
+    assert calls["analysis"]["intent"] != "billing_dispute"
+    cited = {c for step in calls["resolution"]["steps"] for c in step["citations"]}
+    assert cited and not cited & {"KB-032", "DEMO-TKT-000019"}  # no duplicate-charge steps
+    assert all(s["intent"].startswith("call") for s in calls["retrieval"]["sources"][:2])
+
+
+def test_follow_up_to_an_unrecognised_issue_keeps_its_context(client, session_id):
+    first = resolve(client, session_id, "I cant make calls during night")
+    assert first["analysis"]["intent"] == "unknown"
+    follow = resolve(client, session_id, "Mostly when I'm at home")
+    assert follow["analysis"]["used_memory"] is True
+    assert follow["memory"]["state"]["issue"].startswith("I cant make calls")  # still the same issue
+    assert any(s["intent"].startswith("call") for s in follow["retrieval"]["sources"][:3])
+
+
+def test_shared_words_do_not_pull_answers_from_another_topic(client, session_id):
+    # "dropping" also matches call-drop tickets; an internet question must be answered from internet sources.
+    if get_embedding_service().backend != "sentence_transformers":
+        pytest.skip("the hashed n-gram fallback cannot match 'internet' to broadband articles by meaning")
+    out = resolve(client, session_id, "my internet keeps dropping")
+    assert out["retrieval"]["sources"][0]["category"] in ("Internet", "Broadband", "Wi-Fi")
+    cited = [c for step in out["resolution"]["steps"] for c in step["citations"]]
+    assert cited and all(not c.startswith("SYN-TKT") or "call" not in c for c in cited)
+    assert not any("call" in step["text"].lower() for step in out["resolution"]["steps"])
+
+
+NOT_TELECOM = [
+    "How do I open a bank account?", "I forgot my Gmail password", "How do I pay my rent online?",
+    "What is my bank balance?", "Can you make a diet plan for me?", "Best movies on Netflix this week",
+    "Explain data science", "How do I charge my electric car?", "Write a python function call example",
+    "How do I get a refund from Amazon?", "my electricity bill is too high", "my water connection is not working",
+    "How do I upgrade my Windows laptop?", "Recommend a good YouTube channel for cooking",
+    "I want to cancel my gym contract", "What is the capital of France", "Tell me a joke",
+]
+TELECOM = [
+    "My broadband is slow", "I was charged twice", "SIM not detected", "I cant make calls during night",
+    "my data keeps dropping", "how do I recharge", "netflix keeps buffering on my wifi", "my bill is too high",
+    "I need to reset my account password for the app", "roaming not working in France",
+    "I want to port my number", "why was money deducted from my balance", "how to check my balance",
+    "cancel my contract", "can I get a new number",
+]
+
+
+@pytest.mark.parametrize("question", ["help", "it is not working", "nothing loads"])
+def test_vague_problem_gets_a_clarifying_question_not_a_sorry(client, session_id, question):
+    reply = _chat(client, session_id, question)
+    assert reply["resolution"] is None and reply["conversation"]["cases"] == []
+    assert reply["assistant_message"].startswith("Sorry you're having trouble. Which service")
+
+
+@pytest.mark.parametrize("question", ["talk to a human", "I want to speak to an agent", "agent"])
+def test_typed_request_for_a_person_starts_the_handoff(client, session_id, question):
+    sid =client.post("/api/v1/conversations", json={"customer_name": "Asha"}).json()["session_id"]
+    reply = _chat(client, sid, question)
+    assert reply["resolution"] is None and reply["conversation"]["handoff_status"] == "needs_agent"
+
+
+def _chat(client, session_id: str, message: str) -> dict:
+    response = client.post(f"/api/v1/conversations/{session_id}/message", json={"message": message})
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+@pytest.mark.parametrize("question", NOT_TELECOM)
+def test_questions_outside_telecom_get_the_sorry_reply(client, session_id, question):
+    reply = _chat(client, session_id, question)
+    assert reply["resolution"] is None and reply["conversation"]["cases"] == []
+    assert reply["assistant_message"].startswith("Sorry, I can't help with that.")
+
+
+@pytest.mark.parametrize("question", TELECOM)
+def test_telecom_questions_are_answered(client, session_id, question):
+    assert _chat(client, session_id, question)["resolution"] is not None
+
+
+@pytest.mark.parametrize("question", ["What is the capital of France", "tell me a joke", "how do I bake a cake"])
+def test_off_topic_message_inside_a_telecom_chat_is_not_a_follow_up(client, session_id, question):
+    assert _chat(client, session_id, "My broadband is slow.")["resolution"] is not None
+    reply = _chat(client, session_id, question)
+    assert reply["resolution"] is None and reply["assistant_message"].startswith("Sorry, I can't help with that.")
+    assert _chat(client, session_id, "Mostly at night.")["resolution"]["analysis"]["used_memory"] is True

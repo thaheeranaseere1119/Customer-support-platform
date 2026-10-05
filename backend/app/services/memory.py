@@ -24,6 +24,36 @@ from app.utils.text import tokenize, truncate
 
 _FOLLOWUP = re.compile(r"\b(it|its|this|that|same|still|again|also|mostly|only|usually|sometimes|yes|no|"
                        r"didn't|did not|doesn't|happens|tried)\b", re.I)
+# Extra cues that mark a very short message as a detail of the active issue ("since the update", "at home").
+_SHORT_CUES = re.compile(r"\b(too|after|before|every|since|already|anymore|update|updated|home|work|outside|"
+                         r"indoors|weekends?|night|morning|evening)\b", re.I)
+# Entity types that show a short message adds detail to the active issue ("around 8 PM", "on my iPhone").
+_DETAIL_ENTITIES = {"time", "time_of_day", "frequency", "duration", "device", "troubleshooting", "error_code",
+                    "network", "customer_context"}
+
+
+def is_follow_up(text: str, analysis: Analysis) -> bool:
+    """A short message that adds detail to the active issue, not an unrelated question ("tell me a joke")."""
+    length = len(tokenize(text))
+    if length > 15:
+        return False
+    if _FOLLOWUP.search(text):  # refers back to the issue: "it still drops", "yes I tried that"
+        return True
+    # Very short messages may just add a detail: "Mostly at home", "on my iPhone 14", "since the update".
+    return length <= 6 and (bool(_SHORT_CUES.search(text))
+                            or any(e["type"] in _DETAIL_ENTITIES for e in analysis.entities))
+
+
+def _changes_topic(analysis: Analysis, active_info, taxonomy: TaxonomySnapshot) -> bool:
+    """True when the message names its own support area (e.g. "calls") that differs from the active issue's.
+
+    Pure follow-ups ("Mostly at night.", "It still happens") detect no category, so they keep the active issue;
+    a short new question such as "I can't make calls at night" after a billing chat must not inherit billing.
+    """
+    own = analysis.support_category
+    if not own or own == "Unclassified" or active_info is None:
+        return False
+    return taxonomy.top_category(own) != taxonomy.top_category(active_info.support_category)
 
 
 @dataclass
@@ -100,12 +130,11 @@ class MemoryService:
         active_intent = state.get("intent")
         effective = text
         if active_intent and active_intent != "unknown" and analysis.intent == "unknown":
-            # Only genuine follow-ups inherit the active issue: very short replies
-            # ("Mostly at night.") or messages that refer back to it ("it still drops").
-            # A new, self-contained complaint must not be hijacked by memory.
-            length = len(tokenize(text))
-            if length <= 6 or (_FOLLOWUP.search(text) and length <= 15):
-                info = taxonomy.intents.get(active_intent)
+            # Only genuine follow-ups inherit the active issue: short messages that add a detail ("Mostly at
+            # night.", "on my iPhone") or refer back to it ("it still drops"). A new complaint or an unrelated
+            # question ("tell me a joke") must not be hijacked by memory.
+            info = taxonomy.intents.get(active_intent)
+            if is_follow_up(text, analysis) and not _changes_topic(analysis, info, taxonomy):
                 analysis.intent = active_intent
                 analysis.intent_display = info.display_name if info else active_intent
                 analysis.intent_confidence = round(min(0.85, float(state.get("intent_confidence", 0.7)) * 0.9), 3)
@@ -118,6 +147,15 @@ class MemoryService:
                     analysis.subcategory = taxonomy.subcategory(info.support_category)
                 analysis.used_memory = True
                 effective = f"{state.get('issue', '')} Follow-up: {text}".strip()
+        elif active_intent == "unknown" and analysis.intent == "unknown" and state.get("issue"):
+            # The active issue had no known type (e.g. "I can't make calls at night"): a follow-up such as
+            # "Mostly at home" still searches with that issue, otherwise it gets unrelated generic steps.
+            own = analysis.support_category
+            if is_follow_up(text, analysis) and (not own or own == "Unclassified"):
+                if state.get("category") and state["category"] != "Unclassified":
+                    analysis.category = state["category"]
+                analysis.used_memory = True
+                effective = f"{state['issue']} Follow-up: {text}".strip()
         # Carry known details (time, devices, prior troubleshooting) into this turn.
         if state.get("entities") and (analysis.used_memory or analysis.intent == active_intent):
             current = {(e["type"], e["value"].lower()) for e in analysis.entities}
@@ -134,7 +172,8 @@ class MemoryService:
     def update_after_resolution(self, session: ConversationSession, analysis: Analysis, complaint: str, case_id: str,
                                 attempt: int, status: str, summary: str) -> None:
         state = dict(session.memory or {})
-        switched = analysis.intent != state.get("intent") and not analysis.used_memory
+        # An unrecognised complaint that is not a follow-up is a new issue too (unknown -> unknown).
+        switched = (analysis.intent != state.get("intent") or analysis.intent == "unknown") and not analysis.used_memory
         if switched or not state.get("issue"):
             # New, self-contained complaint: start a fresh issue context (resolution
             # history and feedback are kept for the session).

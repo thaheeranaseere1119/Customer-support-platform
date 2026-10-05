@@ -55,6 +55,7 @@ def test_full_human_handoff_workflow(client):
 
     released = handoff(client, sid, "release", agent="Priya")
     assert released["handoff_status"] == "bot"
+    assert released["assigned_agent"] is None and released["agent_unread"] == 0
     assert say(client, sid, "My wifi is not working")["handled_by"] == "bot"
 
     closed = handoff(client, sid, "close", agent="Priya", resolved=True)

@@ -60,7 +60,7 @@ There is no login: anyone who opens `/admin` has admin access. Add authenticatio
 | Reranker | `cross-encoder/ms-marco-MiniLM-L-6-v2` (optional); falls back to the hybrid score |
 | LLM | Provider abstraction: `GeminiProvider` (AI MODE) and `MockProvider` (DEMO MODE, no key needed) |
 | Frontend | React 18, TypeScript, Vite, React Router, TanStack Query, plain CSS design system |
-| Tests | pytest (89 tests), Vitest + Testing Library (23 tests), `scripts/verify_api.py` (40 live checks) |
+| Tests | pytest (138 tests), Vitest + Testing Library (30 tests), `scripts/verify_api.py` (40 live checks) |
 
 ## Project structure
 
@@ -81,7 +81,7 @@ frontend/
 data/           tickets.csv knowledge_base.csv intent_taxonomy.csv support_categories.csv products.csv
                 candidate_cases.csv eval_unknown_complaints.csv telecom_support_adaptive_60000.csv (your dataset)
 scripts/        ingest_data.py validate_dataset.py migrate.py generate_embeddings.py evaluate.py verify_api.py build_seed_data.py
-docker-compose.yml  .env.example  PROJECT_REQUIREMENTS_AUDIT.md
+docker-compose.yml  .env.example  .gitignore  .dockerignore  PROJECT_REQUIREMENTS_AUDIT.md
 ```
 
 ## Commands

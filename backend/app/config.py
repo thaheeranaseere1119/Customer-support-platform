@@ -78,6 +78,11 @@ class Settings(BaseSettings):
     keyword_weight: float = 0.25
     metadata_weight: float = 0.15
     min_relevant_score: float = 0.40
+    # Sources from a different top-level topic than the one detected in the question (e.g. Calls tickets for an
+    # Internet question that shares the word "dropping") keep this fraction of their final score after reranking.
+    topic_mismatch_factor: float = 0.60
+    # With no category detected, the closest intent's topic is used as the hint when its similarity reaches this.
+    topic_hint_min_similarity: float = 0.50
 
     # --- Evidence scoring --------------------------------------------------
     known_threshold: float = 0.70

@@ -102,6 +102,8 @@ def release(db: Session, session_id: str, agent: str) -> ConversationSession:
         raise ConflictError("Only a chat handled by an agent can be handed back to the bot", code="NOT_WITH_AGENT")
     session.handoff_status = "bot"
     session.handoff_reason = None
+    session.assigned_agent = None  # the bot owns the chat again; the inbox must not list it as assigned or unread
+    session.agent_unread = 0
     post(db, session, "system", f"{agent} handed the chat back to Support IQ. The assistant will answer new messages.",
          {"type": "handoff", "handoff": "bot", "agent": agent})
     log_event("handoff_released", db=db, session_id=session.id, agent=agent)

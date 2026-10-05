@@ -39,6 +39,10 @@ export function CandidatesPage() {
   const [form, setForm] = useState({ title: "", content: "", intent: "", notes: "", reviewer: "support-lead" });
   const list = useQuery({ queryKey: ["candidates", tab, origin, page], queryFn: () => api.candidates({ status: tab, origin, page, page_size: 15 }) });
   const intents = useQuery({ queryKey: ["intents"], queryFn: api.intents });
+  // Agent fixes are chat replies to one customer: show what is already published for the issue type to avoid duplicates.
+  const agentFix = active?.origin === "agent_resolved" && active.status === "pending_review";
+  const related = useQuery({ queryKey: ["knowledge", "related", form.intent], enabled: agentFix && !!form.intent,
+    queryFn: () => api.knowledge({ status: "ACTIVE", intent: form.intent, page_size: 5 }) });
   const done = () => { setActive(null); qc.invalidateQueries(); };
   const approve = useMutation({
     mutationFn: () => api.approve(active!.id, { reviewer: form.reviewer, notes: form.notes || undefined, title: form.title, content: form.content, intent: form.intent || undefined }),
@@ -118,12 +122,16 @@ export function CandidatesPage() {
           <div className="quote">“{active.complaint}”</div>
           {active.sources.length > 0 && <div className="small">Evidence used: {active.sources.map((s) => s.source_id).join(", ")}</div>}
           {pending && LIVE_ORIGINS.includes(active.origin) && (
-            <div className="followup-box small">
+            <div className="followup-box small"><div>
               {active.origin === "kb_match"
                 ? <>This is a new question that an existing article already answered. Approving adds it to the dataset as a new example; no new article is created.</>
                 : <>Approving publishes a help article and adds this case to the dataset.</>}
+              {agentFix && <> These steps are the agent's chat replies to one customer. <strong>Rewrite them as general steps</strong> (remove anything
+                specific to this customer, such as a refund already issued) before publishing.</>}
+              {agentFix && !!related.data?.items.length && <> Already published for this issue type: {related.data.items.map((k) => `${k.article_id} “${k.title}”`).join(", ")}.
+                If that article already covers this fix, reject this one instead of publishing a duplicate.</>}
               {!form.intent && <> <strong>Choose an issue type first</strong>, otherwise it can't be added to the dataset.</>}
-            </div>
+            </div></div>
           )}
           {pending ? <>
             <div className="field"><label htmlFor="rv-title">Article title</label><input id="rv-title" className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>

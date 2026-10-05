@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+# Node
+node_modules/
+frontend/dist/
+# Local secrets (copy .env.example to .env)
+.env
+# Local databases are rebuilt automatically on first start (AUTO_SEED=true)
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/rejected_*.csv
+.DS_Store

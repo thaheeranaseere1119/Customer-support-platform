@@ -30,8 +30,14 @@ from app.services.knowledge_evolution import KnowledgeService, is_dataset_query
 from app.services.memory import MemoryService
 from app.services.rag import RAGService
 from app.services.reranker import RerankerService
-from app.services.scope import OUT_OF_SCOPE_REPLY, is_telecom_question, small_talk_reply
 from app.services.retrieval import RetrievalFilters, RetrievalService
+from app.services.scope import (
+    CLARIFY_REPLY,
+    OUT_OF_SCOPE_REPLY,
+    is_telecom_question,
+    is_vague_problem,
+    small_talk_reply,
+)
 from app.services.taxonomy import taxonomy_service
 from app.utils.errors import ConflictError, NotFoundError, OutOfScope
 from app.utils.logging import log_event, new_request_id, request_id_var, short_id
@@ -150,6 +156,16 @@ class AdaptiveResolutionService:
         self.s = services
         self.settings = get_settings()
 
+    def _topic(self, analysis: Analysis, taxonomy) -> str | None:
+        """Top-level topic of the question: the detected category, else the closest intent's category as a hint."""
+        if analysis.category and analysis.category != "Unclassified":
+            return analysis.category
+        best = analysis.candidates[0] if analysis.candidates else None
+        info = taxonomy.intents.get(best["intent"]) if best else None
+        if info and best["similarity"] >= self.settings.topic_hint_min_similarity:
+            return taxonomy.top_category(info.support_category)
+        return None
+
     # ================================================================ core run
     def _run(self, db: Session, *, request_id: str, session, complaint: str, analysis: Analysis, effective_query: str,
              guided_category: str | None, attempt_number: int, exclude_ids: set[str], previous_steps: list[str],
@@ -181,6 +197,8 @@ class AdaptiveResolutionService:
         # -- reranking -------------------------------------------------------
         tracker.start("reranking")
         sources, rerank_method = s.reranker.rerank(effective_query, outcome.sources)
+        named = bool(analysis.category and analysis.category != "Unclassified")
+        sources = s.retrieval.prefer_topic(sources, self._topic(analysis, taxonomy), taxonomy, strict=named)
         tracker.finish("success" if rerank_method in ("cross_encoder", "none") else "warning",
                        "cross-encoder reranking" if rerank_method == "cross_encoder" else
                        ("no sources to rerank" if rerank_method == "none" else "reranker unavailable: hybrid score used"))
@@ -249,7 +267,7 @@ class AdaptiveResolutionService:
         unknown = None
         if mode == "unknown":
             unknown = {"headline": "NEW ISSUE DETECTED",
-                       "message": "We couldn't find enough verified evidence for this issue in the current knowledge base.",
+                       "message": "This looks like a new issue: no verified article covers it yet, so the closest relevant guidance is shown.",
                        "evidence_score": round(assessment.score, 4), "top_similarity": round(assessment.top_similarity, 4),
                        "intent_match": round(assessment.intent_match, 4)}
         can_retry = case.current_attempt < settings.max_resolution_attempts and case.status not in ("resolved", "candidate_submitted", "escalated")
@@ -331,15 +349,21 @@ class AdaptiveResolutionService:
             chat_reply = None if guided_category else small_talk_reply(complaint)
             if chat_reply or not is_telecom_question(complaint, taxonomy=taxonomy_service.get(db),
                                                      classification_method=analysis.classification_method,
-                                                     used_memory=analysis.used_memory, guided_category=guided_category):
-                kind = "small_talk" if chat_reply else "out_of_scope"
-                reply = chat_reply or OUT_OF_SCOPE_REPLY
+                                                     used_memory=analysis.used_memory, guided_category=guided_category,
+                                                     top_similarity=max((c["similarity"] for c in analysis.candidates),
+                                                                        default=0.0)):
+                if chat_reply:
+                    kind, reply = "small_talk", chat_reply
+                elif is_vague_problem(complaint):  # "it's not working": ask which service, don't say "sorry"
+                    kind, reply = "clarify", CLARIFY_REPLY
+                else:
+                    kind, reply = "out_of_scope", OUT_OF_SCOPE_REPLY
                 s.memory.add_message(db, session, "assistant", reply, {"type": kind})
                 log_event("message_out_of_scope" if kind == "out_of_scope" else "small_talk", db=db,
                           session_id=session.id, complaint_preview=complaint[:80])
                 db.commit()
-                tracker.finish("success", "not a telecom question" if kind == "out_of_scope" else "greeting")
-                raise OutOfScope(reply, code="OUT_OF_SCOPE" if kind == "out_of_scope" else "SMALL_TALK",
+                tracker.finish("success", {"out_of_scope": "not a telecom question", "clarify": "asked which service"}.get(kind, "greeting"))
+                raise OutOfScope(reply, code={"out_of_scope": "OUT_OF_SCOPE", "clarify": "NEEDS_DETAILS"}.get(kind, "SMALL_TALK"),
                                  details={"reply": reply})
         except OutOfScope:
             raise

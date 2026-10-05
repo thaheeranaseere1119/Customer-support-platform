@@ -64,6 +64,14 @@ def bootstrap() -> None:
                 logger.info("Seeding complete", extra={"fields": {"summary": summary}})
         except Exception:
             logger.exception("Automatic seeding failed; run scripts/ingest_data.py manually")
+    try:  # existing databases pick up new product keywords from data/products.csv
+        from app.database import session_scope
+        from app.ingestion import sync_products
+
+        with session_scope() as db:
+            sync_products(db)
+    except Exception:
+        logger.exception("Product keyword sync failed")
     try:
         warm_up()
     except Exception:

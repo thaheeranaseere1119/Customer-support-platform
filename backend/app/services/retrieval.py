@@ -214,6 +214,35 @@ class RetrievalService:
             score += 0.2
         return score
 
+    def prefer_topic(self, sources: list[ScoredSource], category: str | None, taxonomy: TaxonomySnapshot, *,
+                     strict: bool = False) -> list[ScoredSource]:
+        """Rank sources from the question's topic above sources from other topics.
+
+        The reranker scores word overlap, so a call-drop ticket can outrank the broadband article for "my internet
+        keeps dropping". Off-topic sources keep `topic_mismatch_factor` of their score. With `strict` (the question
+        itself names the topic), usable on-topic sources - those that would qualify for a candidate answer - are
+        placed first. Nothing changes when no topic was detected or a source has no category.
+        """
+        if not category or category == "Unclassified":
+            return sources
+        s = self.settings
+
+        def off_topic(src: ScoredSource) -> bool:
+            own = taxonomy.top_category(src.category)
+            return own != "Unclassified" and own != category
+
+        def usable(src: ScoredSource) -> bool:
+            return (src.semantic_score >= s.candidate_min_semantic
+                    and (src.reranker_score is None or src.reranker_score >= s.candidate_min_reranker))
+
+        for src in sources:
+            if off_topic(src):
+                src.final_score *= s.topic_mismatch_factor
+        ranked = sorted(sources, key=lambda x: -x.final_score)
+        if strict and any(not off_topic(x) and usable(x) for x in ranked):
+            ranked.sort(key=lambda x: not (not off_topic(x) and usable(x)))  # stable: keeps score order within groups
+        return ranked
+
     def _semantic(self, db: Session, qvec: np.ndarray, allowed: np.ndarray, pool: int) -> tuple[dict[int, float], str]:
         if db_state.pgvector:
             try:

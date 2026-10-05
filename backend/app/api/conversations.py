@@ -21,6 +21,7 @@ from app.schemas.conversation import (
 from app.services import handoff
 from app.services.adaptive_resolution import case_summary
 from app.services.memory import summarize_state
+from app.services.scope import wants_human
 from app.utils.errors import NotFoundError, OutOfScope
 from app.utils.text import truncate
 
@@ -119,6 +120,13 @@ def post_message(body: MessageRequest, session_id: str = SESSION, db: Session = 
             get_container().services.memory.add_message(db, session, "user", body.message, {"routed_to": "agent"})
             db.commit()
             return {"session_id": session_id, "handled_by": "agent", "assistant_message": None, "resolution": None,
+                    "conversation": conversation_payload(db, session)}
+        if wants_human(body.message):  # "talk to a human" typed instead of pressing the button
+            get_container().services.memory.add_message(db, session, "user", body.message, {"type": "human_request"})
+            if session.handoff_status != "needs_agent":
+                handoff.request_agent(db, session_id, "Customer asked for a person in chat", by="customer")
+            db.commit()
+            return {"session_id": session_id, "handled_by": "bot", "assistant_message": None, "resolution": None,
                     "conversation": conversation_payload(db, session)}
         db.flush()
     try:

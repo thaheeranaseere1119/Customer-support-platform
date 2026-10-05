@@ -42,6 +42,21 @@ def _split(value: str) -> list[str]:
     return [v.strip() for v in (value or "").split("|") if v.strip()]
 
 
+def sync_products(db: Session) -> int:
+    """Insert missing products and add new keywords from products.csv to existing ones (keywords are only added)."""
+    created = 0
+    _, rows = read_csv_rows(DATA_DIR / "products.csv")
+    for row in rows:
+        keywords = _split(row["keywords"])
+        product = db.scalar(select(ProductCatalog).where(ProductCatalog.name == row["name"]))
+        if product is None:
+            db.add(ProductCatalog(name=row["name"], support_category=row["support_category"], keywords=keywords))
+            created += 1
+        elif missing := [k for k in keywords if k not in (product.keywords or [])]:
+            product.keywords = list(product.keywords or []) + missing
+    return created
+
+
 def seed_taxonomy(db: Session) -> dict:
     created = {"categories": 0, "products": 0, "intents": 0}
     _, rows = read_csv_rows(DATA_DIR / "support_categories.csv")
@@ -50,11 +65,7 @@ def seed_taxonomy(db: Session) -> dict:
             db.add(SupportCategory(name=row["name"], parent_name=row["parent_name"] or None, icon=row["icon"],
                                    description=row["description"], sort_order=int(row["sort_order"])))
             created["categories"] += 1
-    _, rows = read_csv_rows(DATA_DIR / "products.csv")
-    for row in rows:
-        if db.scalar(select(ProductCatalog).where(ProductCatalog.name == row["name"])) is None:
-            db.add(ProductCatalog(name=row["name"], support_category=row["support_category"], keywords=_split(row["keywords"])))
-            created["products"] += 1
+    created["products"] = sync_products(db)
     _, rows = read_csv_rows(DATA_DIR / "intent_taxonomy.csv")
     for row in rows:
         if db.scalar(select(IntentTaxonomy).where(IntentTaxonomy.name == row["name"])) is None:

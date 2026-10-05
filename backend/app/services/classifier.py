@@ -115,6 +115,12 @@ class ClassificationService:
                 return default or best or "unknown"
         return best or "unknown"
 
+    def _named_area(self, text: str, taxonomy: TaxonomySnapshot) -> str | None:
+        """Top-level category of the product the complaint names explicitly, if any."""
+        product = self.detect_product(text, taxonomy, None)
+        category = next((c for n, c, _ in taxonomy.products if n == product), None)
+        return taxonomy.top_category(category) if category else None
+
     def _llm_classify(self, text: str, taxonomy: TaxonomySnapshot) -> tuple[str, float] | None:
         if not self.llm.is_llm:
             return None
@@ -161,6 +167,13 @@ class ClassificationService:
                 intent, confidence, method = rule_intent, min(0.97, 0.55 + 0.1 * rule_score + agree), "keyword_rules"
         if method == "none" and embedding:
             emb_intent, emb_score = max(embedding.items(), key=lambda kv: kv[1])
+            # Shared wording ("keeps dropping") can make an example from another area look closest. When the
+            # complaint names a product area ("internet", "data"), only intents from that area may be chosen.
+            named = self._named_area(text, taxonomy)
+            if named and taxonomy.top_category(taxonomy.intents[emb_intent].support_category) != named:
+                in_area = {n: v for n, v in embedding.items()
+                           if taxonomy.top_category(taxonomy.intents[n].support_category) == named}
+                emb_intent, emb_score = max(in_area.items(), key=lambda kv: kv[1]) if in_area else (emb_intent, 0.0)
             if emb_score >= threshold:
                 intent, confidence, method = emb_intent, min(0.9, emb_score), "embedding_examples"
 

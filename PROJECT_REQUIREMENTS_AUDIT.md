@@ -4,7 +4,9 @@ Audit of every requirement in the specification against the delivered code. "Tes
 live verification actually ran in this environment (macOS, Python 3.13, Node 25, SQLite; no Docker or PostgreSQL installed).
 Anything not executed here is marked **Partial** or **No**.
 
-**Verification run (2026-10-02):** backend `pytest` 89 passed (also 89 passed with `EMBEDDING_BACKEND=hashing RERANKER_ENABLED=false`); frontend `vitest` 23 passed; `ruff`, `tsc`, `eslint` and `vite build` clean; `scripts/verify_api.py` 40/40 live checks passed; demos 1-4 executed in the browser; the 60,000-row dataset validated (0 rejected) and ingested in ~10 s.
+**Verification run (2026-10-05):** backend `pytest` 138 passed (137 passed + 1 skipped with `EMBEDDING_BACKEND=hashing RERANKER_ENABLED=false`; the skipped topic test needs the semantic model); frontend `vitest` 30 passed; `tsc`, `eslint` and `vite build` clean; `ruff` reports no errors (F/E9), only style rules from a newer ruff release; `scripts/verify_api.py` 40/40 live checks passed; the customer chat, handoff, admin inbox and review queue were exercised in a real browser; a fresh database seeded from the 60,000-row dataset (0 rejected) in ~10 s with the sentence-transformers embeddings and cross-encoder reranker loaded.
+
+Earlier run (2026-10-02): pytest 89, vitest 23, verify_api 40/40.
 
 
 ### 1. Core capabilities
@@ -193,7 +195,7 @@ Anything not executed here is marked **Partial** or **No**.
 | 10+ candidate cases | Yes | Yes (integration) | data/candidate_cases.csv + dataset candidates | 12 authored + 10 dataset groups |
 | Known and unknown examples across all product areas | Yes | Yes (integration) | data/* |  |
 | scripts/ingest_data.py (validate, normalise, reject, insert, chunk, embed, store, index) | Yes | Yes (live API) | scripts/ingest_data.py |  |
-| Unit tests for all listed areas | Yes | Yes | backend/tests | 89 pytest tests pass (also pass with no ML models) |
+| Unit tests for all listed areas | Yes | Yes | backend/tests | 138 pytest tests pass (137 + 1 skipped with no ML models) |
 | Integration tests (known, unknown->retry->escalation, approval->index) | Yes | Yes | tests/test_workflows.py |  |
 | Automated E2E test for the reference complaint + unknown complaint | Yes | Yes | tests/test_e2e.py, frontend/src/test/supportFlow.test.tsx | Frontend part uses jsdom with a mocked API; real-browser verification done manually |
 
@@ -213,12 +215,98 @@ Anything not executed here is marked **Partial** or **No**.
 
 | Requirement | Implemented | Tested | File/Location | Notes |
 |---|---|---|---|---|
-| Customer portal: support website (desktop layout) with chat, cited resolutions and feedback | Yes | Yes (UI, browser) | frontend/src/pages/CustomerApp.tsx | Plain-language wording, no internal scores |
+| Customer portal: support website (desktop layout) with chat, cited resolutions and feedback | Yes | Yes (UI, browser) | frontend/src/site/ (SiteLayout, HomePage, TopicPage, ArticlePage, ChatWidget) | Plain-language wording, no internal scores |
 | Admin portal: all other pages under /admin with Live inbox (plain-language labels, global search, agent display name) | Yes | Yes (UI, browser) | frontend/src/App.tsx, pages/InboxPage.tsx | |
 | Human handoff workflow (request, take, reply, release, close) | Yes | Yes (unit + integration) | backend/app/services/handoff.py, api/conversations.py | tests/test_handoff.py; verified live across two browser tabs |
 | Escalation after max attempts / critical issue routes the chat to the inbox | Yes | Yes (integration) | adaptive_resolution.feedback/resolve | |
 | Reviewer decision is announced in the customer chat | Yes | Yes (integration) | knowledge_evolution.approve/reject | |
 | Authentication for the admin portal | No | No | n/a | Not implemented (out of scope); documented |
+
+## Feature checklist (52 items)
+
+"Browser" = clicked through in a real browser on 2026-10-05; "API" = live HTTP check against the running backend; "Tests" = automated.
+
+### Customer website
+
+| # | Feature | Status | Where | Verified |
+|---|---|---|---|---|
+| 1 | Help center home with article search and popular searches | Done | frontend/src/site/HomePage.tsx | Browser, tests (portals.test) |
+| 2 | Browse by topic (Internet, Mobile, Calls, SMS, SIM, Billing, Recharge, Account, Roaming) | Done | HomePage.tsx, TopicPage.tsx; topics from data/support_categories.csv | Browser |
+| 3 | Help article pages built from the knowledge base (agent-only notes hidden) | Done | site/ArticlePage.tsx, site/articles.ts | Tests |
+| 4 | Friendly "This page has moved" page for broken links | Done | site/NotFoundPage.tsx | Tests |
+
+### Customer chat assistant
+
+| # | Feature | Status | Where | Verified |
+|---|---|---|---|---|
+| 5 | "Chat with us" widget on every customer page | Done | site/ChatWidget.tsx, SiteLayout.tsx | Browser |
+| 6 | Type, tap a suggested topic, or speak | Done | ChatWidget STARTERS, components/VoiceButton.tsx | Browser (voice: simulated in tests) |
+| 7 | Step-by-step fixes linking to source articles | Done | components/AssistantResolution.tsx | Browser |
+| 8 | "Did this solve it?" Yes / Partly / I still need help | Done | AssistantResolution.tsx, POST /feedback | Browser, tests |
+| 9 | Automatic retry with different sources, up to 3 attempts | Done | services/adaptive_resolution.py (excluded sources on retry) | API, tests |
+| 10 | "Partly" asks for more details, then tries again | Done | adaptive_resolution feedback -> needs_more_info | Browser |
+| 11 | Closest relevant steps and related articles for unknown questions | Done | general checklists (KB "general"), grounded_templates.py; retrieval.prefer_topic keeps answers on the question's topic (e.g. "my internet keeps dropping" no longer gets call-drop steps) | Browser, API, tests |
+| 12 | Positive wording, no "couldn't find" messages | Done | ChatWidget.customerHeadline; unknown-issue message reworded | Browser |
+| 13 | Telecom-only; off-topic politely declined | Done | services/scope.py (core telecom words always count; "data"/"calls" unless another subject is named; ambiguous words such as bill, account, refund, plan only without markers like "electricity", "bank", "Amazon", "diet"), memory.is_follow_up (an unrelated message inside a telecom chat is not treated as a follow-up) | Browser, tests (17 off-topic + 15 telecom questions, off-topic inside a chat). Vague reports ("it's not working") get a clarifying question; typed "talk to a human" starts the handoff |
+| 14 | Friendly replies to greetings and thanks | Done | scope.small_talk_reply | Browser, tests |
+| 15 | Conversation memory for follow-ups | Done | services/memory.py (a short message naming another topic starts a new issue; follow-ups to unrecognised issues keep their context) | API, tests |
+| 16 | "Talk to a person" with queue position and cancel | Done | services/handoff.py, ChatWidget banner | Browser, tests |
+| 17 | Live chat with a human agent in the same widget | Done | handoff.agent_message, 3 s polling | Browser (two tabs) |
+| 18 | "Your requests" list of the customer's cases | Done | ChatWidget requests view | Browser |
+| 19 | Notice in chat when a reviewer approves a confirmed fix | Done | knowledge_evolution.approve -> handoff.notify | API, tests |
+
+### Admin console
+
+| # | Feature | Status | Where | Verified |
+|---|---|---|---|---|
+| 20 | Dashboard with "Needs attention" and a 14-day chart | Done | pages/DashboardPage.tsx | Browser |
+| 21 | Live inbox: Waiting / With an agent / Assistant / Closed | Done | pages/InboxPage.tsx | Browser |
+| 22 | Assign to me, Hand back to assistant, Mark solved & close | Done | InboxPage.tsx, POST /conversations/{id}/handoff | Browser, tests |
+| 23 | Canned replies, unread counts, keyboard shortcuts (j/k, Cmd/Ctrl+Enter) | Done | InboxPage.tsx | Browser |
+| 24 | Cases page with every attempt, sources and feedback | Done | pages/CasesPage.tsx | Tests |
+| 25 | Test the assistant: issue type, sources, confidence, cited answer | Done | pages/SupportPage.tsx | Tests (supportFlow) |
+| 26 | Help articles: create, edit, version history | Done | pages/KnowledgePage.tsx | API, tests |
+| 27 | Review queue for human approval | Done | pages/CandidatesPage.tsx | Browser |
+| 28 | Trending problems grouping similar new issues | Done | pages/EmergingPage.tsx, services/emerging_issue.py | API, tests |
+| 29 | Issue types management | Done | pages/IntentsPage.tsx, services/intent_admin.py | API, tests |
+| 30 | Reports on resolution performance and quality checks | Done | pages/AnalyticsPage.tsx, services/evaluation.py | API |
+| 31 | Settings including agent display name | Done | pages/SettingsPage.tsx, hooks/useAgentName.ts | Browser |
+| 32 | Global search (press `/`) across cases, customers, articles | Done | components/TopNavigation.tsx | Browser |
+| 33 | System health indicator | Done | TopNavigation health pill, GET /health | Browser |
+
+### AI and search
+
+| # | Feature | Status | Where | Verified |
+|---|---|---|---|---|
+| 34 | Issue type, product, severity, sentiment and key details | Done | classifier.py, sentiment.py, entity_extractor.py | Tests |
+| 35 | Hybrid search (meaning + keyword + category) over the 60K tickets and help articles | Done | services/retrieval.py | Tests, API |
+| 36 | Optional re-ranking (sentence-transformers cross-encoder) | Done | services/reranker.py | Health reports reranker loaded |
+| 37 | Confidence score with Known / Uncertain / Unknown | Done | services/evidence.py, config thresholds | Tests |
+| 38 | Grounded answers, every step cites a source | Done | services/rag.py | Tests |
+| 39 | Safety check removing unsupported steps | Done | rag guard | Tests |
+| 40 | Gemini support with demo mode without a key | Done | services/llm_provider.py | Demo mode tested; Gemini not run (no key) |
+
+### Learning loop
+
+| # | Feature | Status | Where | Verified |
+|---|---|---|---|---|
+| 41 | New solved questions go to human review, never straight to trusted knowledge | Done | knowledge_evolution.py | API, tests |
+| 42 | Agent-solved chats go to review (reviewer is warned to generalise agent replies and shown existing articles for the issue type) | Done | handoff.close -> candidate_from_agent_fix; CandidatesPage.tsx | Browser |
+| 43 | Approved fixes become help articles | Done | knowledge_evolution.approve | API |
+| 44 | Approved cases are appended to the dataset CSV | Done | knowledge_evolution.add_to_dataset | API (TELCO-LIVE-… row written) |
+| 45 | New knowledge searchable immediately | Done | retrieval.ensure_index after approve | Tests |
+| 46 | Questions already in the dataset do not go to review again | Done | knowledge_evolution (verbatim dataset check) | Tests |
+
+### Platform
+
+| # | Feature | Status | Where | Verified |
+|---|---|---|---|---|
+| 47 | FastAPI with SQLite, or PostgreSQL + pgvector | Done | backend/app/database.py | SQLite run; PostgreSQL not run here |
+| 48 | React + TypeScript frontend | Done | frontend/ | Build, tests |
+| 49 | Validates the 60K dataset on load, fair splits | Done | ingestion.py, utils/validation.py | 60,000 valid / 0 rejected |
+| 50 | Docker setup | Done | docker-compose.yml, backend/Dockerfile, frontend/Dockerfile, .dockerignore | Not run (Docker not installed) |
+| 51 | Backend and frontend tests | Done | backend/tests, frontend/src/test | 138 backend + 30 frontend passing |
+| 52 | README and requirements audit | Done | README.md, this file | — |
 
 ## Totals
 
