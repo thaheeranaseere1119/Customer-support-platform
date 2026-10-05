@@ -1,0 +1,48 @@
+:root {
+  /* Brand */
+  --background: #F7F5F1;
+  --cream: #F3EFE8;
+  --cream-deep: #E9E2D7;
+  --yellow: #F5C518;
+  --yellow-light: #FDF4D3;
+  --brown: #4A1F0F;
+  --brown-80: rgba(74, 31, 15, 0.8);
+  --brown-60: rgba(74, 31, 15, 0.62);
+  --brown-40: rgba(74, 31, 15, 0.4);
+  --brown-12: rgba(74, 31, 15, 0.12);
+  --brown-06: rgba(74, 31, 15, 0.06);
+  --white: #FFFFFF;
+  --accent-red: #D9473D;
+  --line: #E6E0D7;
+  --text: #2B1A12;
+  --muted: #6E5F56;
+
+  /* Status (validated: reserved for evidence state, always with icon + label) */
+  --status-known: #2E8B5E;
+  --status-known-bg: #E3F4EA;
+  --status-uncertain: #D98A1C;
+  --status-uncertain-bg: #FFF0D6;
+  --status-unknown: #D9473D;
+  --status-unknown-bg: #FFE4E0;
+  --info: #3D6FB6;
+  --info-bg: #E6EEFA;
+
+  /* Type */
+  --font-display: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Shape */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(43, 26, 18, 0.05);
+  --shadow-md: 0 4px 14px rgba(43, 26, 18, 0.08);
+  --shadow-lg: 0 24px 60px rgba(74, 31, 15, 0.14);
+
+  --sidebar-width: 232px;
+  --gutter: 24px;
+  color-scheme: light;
+}
