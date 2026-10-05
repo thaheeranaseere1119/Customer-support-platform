@@ -15,7 +15,7 @@ Support IQ is a telecom customer-support assistant with two websites in one app:
 | Website | Who uses it | What it is for |
 |---|---|---|
 | **Customer help center** (`/`) | Customers | Search help articles, browse topics, and chat with the assistant or a person |
-| **Agent workspace** (`/admin`) | Support agents and reviewers (sign-in required) | Answer customers live, review new knowledge, manage articles and issue types, and track quality |
+| **Agent workspace** (`/admin`) Username:admin Password:Thaheera@123| Support agents and reviewers (sign-in required) | Answer customers live, review new knowledge, manage articles and issue types, and track quality |
 
 When someone describes a problem (for example *"My broadband drops every evening around 8 and I've already restarted
 the router twice"*), the assistant:
