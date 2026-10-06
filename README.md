@@ -19,6 +19,9 @@ GUIDED + FREE TEXT + VOICE ─► understanding ─► conversation memory ─�
 REPEATED UNKNOWN CASES ─► embeddings + clustering ─► emerging issue ─► human review ─► new intent + KB article ─► index update
 ```
 
+> New here? `PROJECT_GUIDE.md` explains the project, how to run it, every page, and the client and server sides
+> in plain language.
+
 ## Two portals: customer and admin
 
 | URL | Who | What |
@@ -34,7 +37,15 @@ REPEATED UNKNOWN CASES ─► embeddings + clustering ─► emerging issue ─�
 2. Every **new** query that gets solved goes to the admin **Review queue** (a query is new unless its text is already in the dataset):
    - ✅ YES on an unverified answer → "Customer confirmed a fix"
    - ✅ YES on a verified answer to a new question → "New question, answered by an article" (approving adds a dataset example, not a duplicate article)
-   - an agent marks a chat solved after replying → "Solved by an agent" (the agent's replies become the proposed fix)
+   - an agent marks a chat solved after replying → "Solved by an agent". The agent's replies become the proposed fix,
+     cleaned for an article: greetings, apologies, the customer's name, questions asking for details and sign-offs are
+     dropped; "Please restart your phone" becomes a step; work the agent did ("I've reissued your e-SIM") becomes an
+     agent step ("Reissue the customer's e-SIM profile.") shown to customers as "We'll reissue your e-SIM profile."
+
+   Approving a new fix publishes it as an **ACTIVE help article** (`KB-0xx`, source `human_verified_candidate`), titled
+   with the issue type the reviewer picked. Every approved article gets a **Customer steps** section (one per
+   resolution step; generated if the reviewer did not write one), so customers never see agent wording. The article is
+   indexed immediately, so the next customer who describes the problem is answered from it.
 
    On approval the case is appended to the dataset CSV (`DATASET_PATH`, same 32 columns, `record_id` `TELCO-LIVE-…`,
    in the split its intent already belongs to), inserted into the tickets table and indexed for retrieval, so the next
@@ -82,7 +93,7 @@ rebuilds whenever the stored chunks change, so separate processes always see new
 | LLM | Provider abstraction: `GeminiProvider` (AI MODE) and `MockProvider` (DEMO MODE, no key needed) |
 | Frontend | React 18, TypeScript, Vite, React Router, TanStack Query, plain CSS design system |
 | Auth | Staff accounts (PBKDF2-SHA256), HMAC-signed bearer tokens, login lockout; public customer endpoints |
-| Tests | pytest (266 tests), Vitest + Testing Library (41 tests), `scripts/verify_api.py` (43 live checks), `scripts/verify_llm.py` |
+| Tests | pytest (279 tests), Vitest + Testing Library (42 tests), `scripts/verify_api.py` (43 live checks), `scripts/verify_llm.py` |
 
 ## Project structure
 
@@ -284,8 +295,8 @@ The Reports page and `python -m scripts.evaluate` measure the same pipeline cust
 | Practice questions (64 + 55, different wording) | `data/tune_realistic_complaints.csv`, `data/tune2_realistic_complaints.csv` | Finding weaknesses to fix |
 | Synthetic split + 4 seeded rewordings each (short, typos, casual, noise) | the 60K dataset | Regression checks; the split repeats a few templates |
 
-Latest results on the realistic test set: issue type 90.5% (57/63), answered from a correct article 90.5%, correct
-article in the top 3 96.8%, answered with steps 98.4%, clean customer wording 63/63. The synthetic rewordings score 8/8
+Latest results on the realistic test set: issue type 92.1% (58/63), answered from a correct article 92.1%, correct
+article in the top 3 98.4%, answered with steps 98.4%, clean customer wording 63/63. The synthetic rewordings score 8/8
 in every wording on both splits.
 
 Every rate on the Reports page is headlined by its 95% lower confidence bound (Wilson score), with the counts and the
@@ -300,7 +311,15 @@ dispute matched only on a catch-all word; matches in the product area the custom
 reviewer approves a new question under an issue type, the customer's wording becomes an example of that issue type,
 so the next customer who puts it that way is recognised straight away (new questions improve the classifier, always
 through human review). A question that matches no issue type is answered from the general checklist for its topic;
-guessing the nearest issue type's article was tried and rejected because it chose wrong articles for new problems. 191 extra example
+guessing the nearest issue type's article was tried and rejected because it chose wrong articles for new problems.
+
+Each chat answer opens with a line written for what the customer said, built only from their words and the issue
+type: a problem report gets "Sorry your broadband keeps dropping every evening. Since you've already restarted the
+router, you can skip that step. Let's get your connection stable again:", a question gets "Let's reset your
+password:", a retry gets "Let's try another way to …". "How do I reset…" is a question, not something already
+tried; "took it out and put it back" counts as reseating the SIM. A travel destination makes a connectivity
+question a roaming one (India is treated as home). When an issue type has several articles, the one whose
+described symptoms best match the question is used (evening drops, weak Wi-Fi upstairs). 191 extra example
 complaints (`scripts/seed_intent_examples.py`) are checked by a test to be independent of the test and practice sets.
 
 ```bash

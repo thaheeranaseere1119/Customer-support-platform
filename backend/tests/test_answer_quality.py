@@ -181,3 +181,54 @@ def test_approved_new_wording_is_recognised_next_time(client, db, services, sess
     first_article = next(c for c in again["resolution"]["steps"][0]["citations"] if c.startswith("KB-"))
     by_id = {s["source_id"]: s for s in again["retrieval"]["sources"]}
     assert by_id[first_article]["intent"] == "no_signal"  # answered from a no-signal article (KB-005 or the approved one)
+
+
+def _chat_reply(client, message: str) -> dict:
+    sid = client.post("/api/v1/conversations", json={"customer_name": "Asha"}).json()["session_id"]
+    reply = client.post(f"/api/v1/conversations/{sid}/message", json={"message": message}).json()
+    return next(m for m in reversed(reply["conversation"]["messages"]) if m["role"] == "assistant")
+
+
+@pytest.mark.parametrize(("message", "intro"), [
+    ("My broadband drops every evening around 8 and I've already restarted the router twice",
+     "Sorry your broadband keeps dropping every evening. Since you've already restarted the router, you can skip that "
+     "step. Let's get your connection stable again:"),
+    ("how do I reset my password", "Let's reset your password:"),
+    ("is there an outage in my area?", "Let's check for an outage in your area:"),
+    ("my phone says no sim, I already took it out and put it back",
+     "Sorry your phone isn't detecting the SIM. Since you've already reseated the SIM, you can skip that step. "
+     "Let's get your SIM detected:"),
+])
+def test_reply_opens_with_what_the_customer_said(client, message, intro):
+    assert _chat_reply(client, message)["metadata"]["customer_intro"] == intro
+
+
+@pytest.mark.parametrize(("text", "tried"), [
+    ("how do I reset my password", []),                                   # a question, not an attempt
+    ("I need to restart my router?", []),
+    ("I already took it out and put it back", ["reseated the SIM"]),
+    ("turned it off and on again, still nothing", ["restarted it"]),
+    ("I already restarted the router twice", ["already restarted the router"]),
+])
+def test_already_tried_means_done_not_asked(text, tried):
+    from app.services.entity_extractor import extract_entities
+    assert [e.value for e in extract_entities(text) if e.type == "troubleshooting"] == tried
+
+
+@pytest.mark.parametrize("question", ["can I use my phone in France", "travelling to Thailand next week, will my data work"])
+def test_travel_questions_are_roaming(db, services, question):
+    assert services.classifier.classify(db, question).intent == "roaming_not_working"
+
+
+def test_home_country_is_not_travel(db, services):
+    assert services.classifier.classify(db, "my phone has no signal in India").intent == "no_signal"
+
+
+def test_article_is_chosen_by_the_symptoms_described(client, session_id):
+    from app.services.embeddings import get_embedding_service
+    if get_embedding_service().backend != "sentence_transformers":
+        pytest.skip("symptom matching needs the semantic model")
+    evening = resolve(client, session_id, "my broadband drops every evening at the same time")
+    assert evening["resolution"]["steps"][0]["citations"][0] == "KB-031"   # evening time-pattern article
+    upstairs = resolve(client, f"{session_id}-2", "wifi is weak upstairs")
+    assert upstairs["resolution"]["steps"][0]["citations"][0] == "KB-033"  # coverage article

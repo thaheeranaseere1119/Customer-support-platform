@@ -102,7 +102,7 @@ def test_fix_from_an_agent_goes_to_review_and_into_the_dataset(client):
 
     pending = client.get("/api/v1/candidates", params={"status": "pending_review", "origin": "agent_resolved"}).json()
     candidate = next(c for c in pending["items"] if c["case_id"] == case_id)
-    assert "reissued your e-SIM" in candidate["proposed_resolution"] and candidate["customer_feedback"] == "solved_by_agent"
+    assert "Reissue the customer's e-SIM profile." in candidate["proposed_resolution"] and candidate["customer_feedback"] == "solved_by_agent"
     approved = client.post(f"/api/v1/knowledge/{candidate['id']}/approve",
                            json={"reviewer": "lead", "intent": "sim_replacement"}).json()
     assert approved["article"]["status"] == "ACTIVE"
@@ -171,3 +171,42 @@ def test_non_telecom_questions_are_politely_declined(client):
     assert say(client, sid, "My SIM is not detected")["resolution"]["citations"]
     thanks = say(client, sid, "Thank you so much")
     assert thanks["resolution"] is None and thanks["assistant_message"].startswith("You're welcome")
+
+
+def test_agent_chat_replies_become_a_clean_help_article(client):
+    """Greetings, the customer's name, questions and sign-offs stay in the chat; the article keeps only the fix,
+    worded for agents and for customers, and the next customer is answered from it."""
+    sid = client.post("/api/v1/conversations", json={"customer_name": "Asha"}).json()["session_id"]
+    say(client, sid, "The wifi calling switch is greyed out on my phone and I can't turn it on")
+    handoff(client, sid, "take", agent="Priya")
+    for text in ("Hi Asha, sorry about that! I've enabled wifi calling on your line from our side.",
+                 "Please restart your phone, then turn on wifi calling in Settings > Phone.",
+                 "Can you tell me your phone model?", "Let me know once done."):
+        client.post(f"/api/v1/conversations/{sid}/agent-message", json={"agent": "Priya", "message": text})
+    case_id = client.get(f"/api/v1/conversations/{sid}").json()["cases"][-1]["case_id"]
+    handoff(client, sid, "close", agent="Priya", resolved=True)
+    pending = client.get("/api/v1/candidates", params={"origin": "agent_resolved", "page_size": 100}).json()["items"]
+    candidate = next(c for c in pending if c["case_id"] == case_id)
+    assert candidate["proposed_resolution"] == (
+        "1. Enable wifi calling on the customer's line.\n"
+        "2. Restart the customer's phone, then turn on wifi calling in Settings > Phone.\n"
+        "Customer steps:\n1. We'll enable wifi calling on your line.\n"
+        "2. Restart your phone, then turn on wifi calling in Settings > Phone.")
+    article = client.post(f"/api/v1/knowledge/{candidate['id']}/approve",
+                          json={"reviewer": "lead", "intent": "service_activation"}).json()["article"]
+    assert article["title"].startswith("Service Activation: ") and "Asha" not in article["content"]
+
+    sid2 = client.post("/api/v1/conversations", json={"customer_name": "Ravi"}).json()["session_id"]
+    steps = say(client, sid2, "wifi calling option is grey and won't switch on")["resolution"]["resolution"]["steps"]
+    assert steps[0]["citations"][0] == article["article_id"]
+    assert steps[0]["customer_text"] == "We'll enable wifi calling on your line."
+
+
+def test_approved_article_always_gets_customer_steps(client):
+    sid = start(client)["session_id"]
+    case_id = say(client, sid, "My kids smartwatch stopped syncing step counts overnight")["resolution"]["case_id"]
+    candidate_id = feedback(client, case_id, "solved")["candidate_id"]
+    article = client.post(f"/api/v1/knowledge/{candidate_id}/approve", json={
+        "reviewer": "lead", "content": "Symptoms: watch not syncing.\nResolution steps:\n1. Restart the device.\n"
+                                       "2. Escalate if it still does not sync.\nCaution: none."}).json()["article"]
+    assert "Customer steps:\n1. Restart your device.\n2. If it's still not working" in article["content"]

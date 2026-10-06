@@ -4,7 +4,7 @@ Audit of every requirement in the specification against the delivered code. "Tes
 live verification actually ran in this environment (macOS, Python 3.13, Node 25, SQLite; no Docker or PostgreSQL installed).
 Anything not executed here is marked **Partial** or **No**.
 
-**Verification run (2026-10-05, answer quality and evaluation):** backend `pytest` 266 passed (264 + 2 skipped with `EMBEDDING_BACKEND=hashing RERANKER_ENABLED=false`); frontend `vitest` 41 passed; `tsc`, `eslint` and `vite build` clean; `scripts/verify_api.py` 43/43 through the split services (gateway + nlu + retrieval + generation as separate processes, with staff sign-in). Realistic test set (63 hand-labelled customer questions, never tuned on): issue type 90.5%, correct article used 90.5%, correct article in top 3 96.8%, answered 98.4%, clean customer wording 63/63. Synthetic splits: 8 complaints × 5 wordings (original, short, typos, casual, noise), 8/8 in every wording. The Reports page headlines each rate by its 95% lower bound.
+**Verification run (2026-10-05, answer quality and evaluation):** backend `pytest` 279 passed (276 + 3 skipped with `EMBEDDING_BACKEND=hashing RERANKER_ENABLED=false`); frontend `vitest` 42 passed; `tsc`, `eslint` and `vite build` clean; `scripts/verify_api.py` 43/43 through the split services (gateway + nlu + retrieval + generation as separate processes, with staff sign-in). Realistic test set (63 hand-labelled customer questions, never tuned on): issue type 92.1%, correct article used 92.1%, correct article in top 3 98.4%, answered 98.4%, clean customer wording 63/63. Synthetic splits: 8 complaints × 5 wordings (original, short, typos, casual, noise), 8/8 in every wording. The Reports page headlines each rate by its 95% lower bound.
 
 Earlier run (2026-10-02): pytest 89, vitest 23, verify_api 40/40.
 
@@ -278,7 +278,7 @@ Earlier run (2026-10-02): pytest 89, vitest 23, verify_api 40/40.
 
 | # | Feature | Status | Where | Verified |
 |---|---|---|---|---|
-| 34 | Issue type, product, severity, sentiment and key details | Done | classifier.py (stem and in-order keyword matching, spelling correction, context and specificity rules, named-area bonus, 191 extra examples), sentiment.py, entity_extractor.py | Tests; realistic test set issue type 90.5% (57/63) |
+| 34 | Issue type, product, severity, sentiment and key details | Done | classifier.py (stem and in-order keyword matching, spelling correction, context and specificity rules, named-area bonus, 191 extra examples), sentiment.py, entity_extractor.py | Tests; realistic test set issue type 92.1% (58/63) |
 | 35 | Hybrid search (meaning + keyword + category) over the 60K tickets and help articles | Done | services/retrieval.py | Tests, API |
 | 36 | Optional re-ranking (sentence-transformers cross-encoder) | Done | services/reranker.py | Health reports reranker loaded |
 | 37 | Confidence score with Known / Uncertain / Unknown | Done | services/evidence.py, config thresholds | Tests |
@@ -305,7 +305,7 @@ Earlier run (2026-10-02): pytest 89, vitest 23, verify_api 40/40.
 | 48 | React + TypeScript frontend | Done | frontend/ | Build, tests |
 | 49 | Validates the 60K dataset on load, fair splits | Done | ingestion.py, utils/validation.py | 60,000 valid / 0 rejected |
 | 50 | Docker setup | Done | docker-compose.yml (postgres, gateway, nlu, retrieval, generation, frontend), backend/Dockerfile, frontend/Dockerfile, .dockerignore | Compose file validated; not run (Docker not installed). The same four roles were run as separate local processes |
-| 51 | Backend and frontend tests | Done | backend/tests, frontend/src/test | 266 backend + 41 frontend passing |
+| 51 | Backend and frontend tests | Done | backend/tests, frontend/src/test | 279 backend + 42 frontend passing |
 | 52 | README and requirements audit | Done | README.md, this file | — |
 
 ## Use Case 2: Intelligent Support Ticket Resolution Assistant

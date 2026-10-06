@@ -165,3 +165,20 @@ describe("Admin inbox", () => {
     await waitFor(() => expect(calls.some((c) => c.startsWith("POST") && c.endsWith("/handoff"))).toBe(true));
   });
 });
+
+describe("Chat replies", () => {
+  it("opens with the line written for this customer's question", async () => {
+    const { ChatWidgetProvider } = await import("../site/ChatWidget");
+    window.localStorage.setItem("telecom-customer-chat", "chat-abc");
+    const chat = { ...baseChat, messages: [...baseChat.messages,
+      { id: 2, role: "user", message: "my broadband drops every evening", metadata: {}, created_at: "2026-10-02T10:01:00" },
+      { id: 3, role: "assistant", message: "Verified evidence…", created_at: "2026-10-02T10:01:02",
+        metadata: { case_id: "CASE-1", attempt: 1, status: "known",
+          customer_intro: "Sorry your broadband keeps dropping every evening. Let's get your connection stable again:" } }] };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
+      jsonResponse(String(input).includes("/cases/") ? { case_id: "CASE-1", status: "awaiting_feedback", current_attempt: 1, attempts: [] } : chat));
+    renderWithProviders(<ChatWidgetProvider initiallyOpen><div /></ChatWidgetProvider>);
+    expect(await screen.findByText("Sorry your broadband keeps dropping every evening. Let's get your connection stable again:")).toBeInTheDocument();
+    expect(screen.queryByText("Here's what usually fixes this:")).not.toBeInTheDocument();
+  });
+});

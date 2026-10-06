@@ -18,7 +18,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from app.services.embeddings import EmbeddingService
-from app.services.entity_extractor import extract_entities
+from app.services.entity_extractor import COUNTRIES, extract_entities
 from app.services.llm_provider import LLMProvider
 from app.services.sentiment import analyze_sentiment, estimate_severity
 from app.services.taxonomy import TaxonomySnapshot, taxonomy_service
@@ -72,6 +72,13 @@ CONTEXT_WINS = {
 SPECIFIC_OVER_GENERAL = {"unexpected_charge": "billing_dispute", "payment_failed": "billing_dispute",
                          "refund_status": "billing_dispute"}
 CATCH_ALL_SCORE = 1.0  # one single-word keyword match
+# Being abroad turns a connectivity problem into a roaming one ("can I use my phone in France"). The demo operator
+# is in India (rupee prices, recharge plans), so India is home, not travel.
+HOME_COUNTRY = "india"
+_TRAVEL = re.compile(r"\b(?:abroad|overseas|travel(?:l)?ing|on holiday|(?:in|to) (?:"
+                     + "|".join(c for c in COUNTRIES if c != HOME_COUNTRY) + r"))\b", re.I)
+_TRAVEL_SYMPTOMS = {"no_signal", "mobile_data_not_working", "mobile_data_slow", "call_drops", "call_quality",
+                    "sms_not_received", "5g_not_available", "sim_not_detected"}
 
 
 class ClassificationService:
@@ -230,6 +237,8 @@ class ClassificationService:
         for context, symptoms in CONTEXT_WINS.items():
             if context in rules and any(g in rules for g in symptoms):
                 rules[context] = max(rules.values()) + 0.5
+        if _TRAVEL.search(text) and all(n in _TRAVEL_SYMPTOMS or n == "roaming_not_working" for n in rules):
+            rules["roaming_not_working"] = max(rules.values(), default=0.0) + 1.0
         for specific, general in SPECIFIC_OVER_GENERAL.items():
             if specific in rules and general in rules and base.get(general, 0) <= CATCH_ALL_SCORE:
                 rules[specific] = max(rules.values()) + 0.5

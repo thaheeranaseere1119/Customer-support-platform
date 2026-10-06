@@ -11,10 +11,12 @@ Every attempt is persisted; nothing is overwritten.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
+import numpy as np
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -26,6 +28,7 @@ from app.services.classifier import Analysis, ClassificationService
 from app.services.embeddings import EmbeddingService
 from app.services.emerging_issue import EmergingIssueService
 from app.services.evidence import EvidenceScoringService
+from app.services.grounded_templates import parse_kb
 from app.services.knowledge_evolution import KnowledgeService, is_dataset_query
 from app.services.memory import MemoryContext, MemoryService
 from app.services.rag import RAGService
@@ -39,6 +42,7 @@ from app.services.scope import (
     small_talk_reply,
 )
 from app.services.taxonomy import taxonomy_service
+from app.services.wording import customer_intro
 from app.utils.errors import ConflictError, NotFoundError, OutOfScope
 from app.utils.logging import log_event, new_request_id, request_id_var, short_id
 from app.utils.text import truncate
@@ -155,6 +159,7 @@ class AdaptiveResolutionService:
     def __init__(self, services: Services):
         self.s = services
         self.settings = get_settings()
+        self._symptom_cache: dict[tuple, object] = {}
 
     def _topic(self, analysis: Analysis, taxonomy) -> str | None:
         """Top-level topic of the question: the detected category, else the closest intent's category as a hint."""
@@ -181,7 +186,7 @@ class AdaptiveResolutionService:
 
     def _anchor_articles(self, db: Session, sources: list[ScoredSource], intent: str, query: str, analysis: Analysis,
                          taxonomy, exclude_ids: set[str], qvec) -> list[ScoredSource]:
-        """Put the help article(s) for a confidently classified issue type first; fetch them if search missed them."""
+        """Put the help articles for a confidently classified issue type first, best-fitting article first."""
         s = self.s
         floor = self._article_floor(analysis)
 
@@ -189,14 +194,28 @@ class AdaptiveResolutionService:
             return (src.source_type == "knowledge_base" and src.intent == intent and not (src.extra or {}).get("general")
                     and src.semantic_score >= floor)
 
-        if not any(own(x) for x in sources):
-            extra = s.retrieval.search(
-                db, query, intent=intent, category=analysis.category, product=analysis.product, taxonomy=taxonomy,
-                filters=RetrievalFilters(exclude_source_ids=exclude_ids, source_types={"knowledge_base"}), top_k=5,
-                query_vector=qvec)
-            known = {x.source_id for x in sources}
-            sources = sources + [x for x in extra.sources if own(x) and x.source_id not in known]
-        return [x for x in sources if own(x)] + [x for x in sources if not own(x)]
+        # Fetch the issue type's articles even if search ranked them low, so the best-fitting one can be chosen.
+        extra = s.retrieval.search(
+            db, query, intent=intent, category=analysis.category, product=analysis.product, taxonomy=taxonomy,
+            filters=RetrievalFilters(exclude_source_ids=exclude_ids, source_types={"knowledge_base"}), top_k=5,
+            query_vector=qvec)
+        known = {x.source_id for x in sources}
+        sources = sources + [x for x in extra.sources if own(x) and x.source_id not in known]
+        articles = [x for x in sources if own(x)]
+        if len(articles) > 1 and qvec is not None:
+            # Several articles for one issue type ("Raising a billing dispute" vs "Duplicate charge review"): answer
+            # from the one whose described symptoms match what the customer said.
+            articles.sort(key=lambda x: -float(np.dot(qvec, self._symptom_vector(x))))
+        return articles + [x for x in sources if not own(x)]
+
+    def _symptom_vector(self, source: ScoredSource):
+        """Embedding of an article's title and symptoms (cached per article version)."""
+        key = (source.source_id, hash(source.content))
+        if key not in self._symptom_cache:
+            symptoms = parse_kb(source.content)["symptoms"]
+            title = re.sub(r"^KB-\d+:\s*", "", source.title)
+            self._symptom_cache[key] = self.s.embeddings.embed_one(f"{title}. {symptoms}")
+        return self._symptom_cache[key]
 
     # ================================================================ core run
     def _run(self, db: Session, *, request_id: str, session, complaint: str, analysis: Analysis, effective_query: str,
@@ -457,7 +476,10 @@ class AdaptiveResolutionService:
         attempt = self._persist_attempt(db, case, 1, run, effective_query, None, set(), tracker, total_ms)
         s.memory.update_after_resolution(session, analysis, complaint, case.id, 1, mode, answer.summary)
         s.memory.add_message(db, session, "assistant", assistant_reply(answer, 1), {"case_id": case.id, "attempt": 1, "status": mode,
-                                                                 "evidence_score": round(run["assessment"].score, 4)})
+                                                                 "evidence_score": round(run["assessment"].score, 4),
+                                                                 "customer_intro": customer_intro(
+                                                                     complaint, analysis.intent, analysis.entities,
+                                                                     answer.steps, 1)})
         memory_context = s.memory.load(db, session)
         self._log(db, "resolution_completed", request_id, case, run, total_ms, attempt=1)
         if analysis.severity == "critical":
@@ -526,7 +548,9 @@ class AdaptiveResolutionService:
         case.updated_at = utcnow()
         s.memory.update_after_resolution(session, analysis, case.complaint, case.id, attempt_number, run["mode"], run["answer"].summary)
         s.memory.add_message(db, session, "assistant", assistant_reply(run["answer"], attempt_number),
-                             {"case_id": case.id, "attempt": attempt_number, "status": run["mode"]})
+                             {"case_id": case.id, "attempt": attempt_number, "status": run["mode"],
+                              "customer_intro": customer_intro(case.complaint, analysis.intent, analysis.entities,
+                                                               run["answer"].steps, attempt_number)})
         memory_context = s.memory.load(db, session)
         self._log(db, "resolution_retry", request_id, case, run, total_ms, attempt=attempt_number)
         db.commit()

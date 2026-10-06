@@ -20,6 +20,7 @@ from app.config import get_settings
 from app.models import (
     CandidateCase,
     ConversationMessage,
+    ConversationSession,
     DocumentChunk,
     IntentTaxonomy,
     KnowledgeArticle,
@@ -31,6 +32,7 @@ from app.services import handoff
 from app.services.embeddings import EmbeddingService
 from app.services.retrieval import RetrievalService
 from app.services.taxonomy import taxonomy_service
+from app.services.wording import agent_reply_steps, customer_version, numbered
 from app.utils.errors import ConflictError, NotFoundError, ValidationFailed
 from app.utils.logging import log_event, short_id
 from app.utils.text import strip_synthetic_tag, text_hash, truncate
@@ -95,6 +97,31 @@ def _append_csv_row(path: Path, row: dict) -> None:
             csv.DictWriter(fh, fieldnames=header, extrasaction="ignore").writerow({h: row.get(h, "") for h in header})
 
 
+CUSTOMER_STEPS = "Customer steps:"
+_UNNAMED_ISSUES = {None, "", "Unknown / New Issue", "New issue", "Unknown"}
+
+
+def proposed_title(intent_display: str | None, complaint: str) -> str:
+    """'SIM Replacement: <customer's words>', or 'New issue: ...' while the issue type is unknown."""
+    label = "New issue" if intent_display in _UNNAMED_ISSUES else intent_display
+    return truncate(f"{label}: {strip_synthetic_tag(complaint).strip()}", 190)
+
+
+def with_customer_steps(body: str) -> str:
+    """Add a "Customer steps:" section (one per resolution step) to an article that has none, so customers are
+    never shown agent wording; a reviewer's own customer steps are kept as written."""
+    from app.services.grounded_templates import parse_kb
+    if CUSTOMER_STEPS.lower() in (body or "").lower():
+        return body
+    steps = [customer_version(step) for step in parse_kb(body)["steps"]]
+    if not any(steps):
+        return body
+    block = f"{CUSTOMER_STEPS}\n" + numbered([s or "Our team will take care of this step for you." for s in steps])
+    lines = body.rstrip().splitlines()
+    at = next((i for i, line in enumerate(lines) if re.match(r"(?:Escalate when|Caution|Source note):", line)), len(lines))
+    return "\n".join(lines[:at] + block.splitlines() + lines[at:])
+
+
 def candidate_from_agent_fix(db: Session, case: SupportCase, agent: str) -> CandidateCase | None:
     """Turn an agent-solved case into candidate knowledge (pending human review).
 
@@ -111,14 +138,19 @@ def candidate_from_agent_fix(db: Session, case: SupportCase, agent: str) -> Cand
     if next_case is not None:
         stmt = stmt.where(ConversationMessage.created_at < next_case)
     replies = db.scalars(stmt.order_by(ConversationMessage.id)).all()
-    steps = [m.message.strip() for m in replies if m.message.strip()]
-    if not steps:
+    messages = [m.message.strip() for m in replies if m.message.strip()]
+    if not messages:
         return None
+    # Chat replies are written to one customer: keep only the fix, worded for agents and for customers.
+    session = db.get(ConversationSession, case.session_id) if case.session_id else None
+    pairs = agent_reply_steps(messages, session.customer_name if session else None)
+    resolution = (f"{numbered([a for a, _ in pairs])}\n{CUSTOMER_STEPS}\n{numbered([c for _, c in pairs])}"
+                  if pairs else numbered(messages))
     candidate = CandidateCase(
         id=short_id("CAND"), case_id=case.id, origin="agent_resolved", complaint=case.complaint,
         intent=case.intent, category=case.category, product=case.product,
-        proposed_title=truncate(f"{case.analysis.get('intent_display', 'New issue')}: {case.complaint}", 190),
-        proposed_resolution="\n".join(f"{i}. {text}" for i, text in enumerate(steps, 1)),
+        proposed_title=proposed_title(case.analysis.get("intent_display"), case.complaint),
+        proposed_resolution=resolution,
         sources=[], evidence_score=case.evidence_score, attempt_number=case.current_attempt,
         customer_feedback="solved_by_agent", occurrences=1, emerging_signal=case.evidence_status == "unknown",
         status="pending_review", embedding=case.embedding, embedding_model=case.embedding_model,
@@ -313,7 +345,7 @@ class KnowledgeService:
         candidate = CandidateCase(
             id=short_id("CAND"), case_id=case.id, origin=origin, complaint=case.complaint,
             intent=case.intent, category=case.category, product=case.product,
-            proposed_title=truncate(f"{case.analysis.get('intent_display', 'New issue')}: {case.complaint}", 190),
+            proposed_title=proposed_title(case.analysis.get("intent_display"), case.complaint),
             proposed_resolution=resolution, sources=[{"source_id": c["source_id"], "source_type": c["source_type"],
                                                       "title": c["title"], "score": c["score"]} for c in attempt.citations],
             evidence_score=attempt.evidence_score, attempt_number=attempt.attempt_number,
@@ -354,18 +386,21 @@ class KnowledgeService:
             if final_category not in taxonomy.categories:
                 final_category = "Unclassified"
             steps = re.sub(r"\s*\[[^\]]+\]", "", candidate.proposed_resolution).strip()
-            body = content or (
+            if title is None or title.strip() == candidate.proposed_title:  # the reviewer may have named the issue type
+                display = taxonomy.intents[final_intent].display_name if final_intent in taxonomy.intents else None
+                title = proposed_title(display, candidate.complaint)
+            body = with_customer_steps(content or (
                 f"Symptoms: {strip_synthetic_tag(candidate.complaint)}\nResolution steps:\n{steps}\n"
                 f"Escalate when: The steps above do not resolve the issue.\n"
                 f"Caution: Human-verified from candidate {candidate.id}"
                 f"{' (case ' + candidate.case_id + ')' if candidate.case_id else ''}; customer feedback was "
                 f"'{candidate.customer_feedback}'.\nSource note: verified by {reviewer}."
-            )
+            ))
             # A query solved by an existing verified article adds the customer's wording to that article (and a
             # dataset example), not a duplicate article.
             kb_match = candidate.origin == "kb_match"
             article = None if kb_match else self.create_article(
-                db, title=title or truncate(candidate.proposed_title, 190), content=body, category=final_category,
+                db, title=title, content=body, category=final_category,
                 intent=final_intent, product=candidate.product or "", status="ACTIVE",
                 source="human_verified_candidate", created_by=reviewer)
             candidate.status = "approved"

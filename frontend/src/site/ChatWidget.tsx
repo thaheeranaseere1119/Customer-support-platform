@@ -57,7 +57,8 @@ function Bubble({ m, sessionId, latestByCase }: { m: ChatMessage; sessionId: str
     <div className={`cw-row ${mine ? "mine" : ""}`}>
       <div className={`cw-bubble ${mine ? "mine" : m.role === "agent" ? "agent" : "bot"} ${rich ? "rich" : ""}`}>
         {m.role === "agent" && <div className="cw-sender">{String(m.metadata.agent ?? "Support team")}</div>}
-        <div className="cw-text">{rich ? customerHeadline(m.message, m.metadata.status, attempt) : m.message}</div>
+        <div className="cw-text">{rich ? (typeof m.metadata.customer_intro === "string" && m.metadata.customer_intro
+          ? m.metadata.customer_intro : customerHeadline(m.message, m.metadata.status, attempt)) : m.message}</div>
         {rich && <AssistantResolution caseId={caseId!} attempt={attempt} sessionId={sessionId}
           audience="customer" interactive={latestByCase[caseId!] === attempt} />}
         <div className="cw-time">{time(m.created_at)}</div>
