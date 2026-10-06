@@ -1,0 +1,431 @@
+# Support IQ: Deliverables
+
+Support IQ is a telecom customer-support platform. Customers use a help center and a chat assistant. Staff use an
+agent workspace for the live inbox, review queue, help articles and reports. The assistant answers from verified
+sources only (help articles and resolved tickets), cites every step, and learns new fixes only after a person
+approves them.
+
+| Deliverable | Where |
+|---|---|
+| 1. Architecture diagram | [Section 1](#1-architecture-diagram) |
+| 2. Full executable code on GitHub | [Section 2](#2-full-executable-code-checked-in-to-github) |
+| 3. Additional exploration | [Section 3](#3-additional-exploration) |
+| 4. Evals on system health | [Section 4](#4-evals-on-system-health) |
+| Dataset | [Section 5](#5-dataset) |
+
+More detail: [PROJECT_GUIDE.md](PROJECT_GUIDE.md) (pages, client and server) and [README.md](README.md).
+
+---
+
+## 1. Architecture diagram
+
+### 1.1 End-to-end architecture (flowchart)
+
+Read it from top to bottom: who uses the system, the client, the server, the AI pipeline, the data, and the
+human-approved learning loop that feeds new knowledge back in.
+
+```mermaid
+flowchart TD
+    CUST(["👤 Customer"])
+    AGENT(["🧑‍💼 Support agent / admin"])
+
+    subgraph CLIENT["① CLIENT · React + TypeScript + Vite · port 5174"]
+        HELP["Help center<br/>topics · articles · search"]
+        CHAT["Chat widget<br/>chat · voice · feedback"]
+        ADMIN["Agent workspace /admin<br/>inbox · review queue · KB · reports"]
+    end
+
+    subgraph SERVER["② SERVER · FastAPI gateway · port 8000 · /api/v1"]
+        AUTH{"Staff sign-in<br/>token valid?"}
+        API["REST API<br/>conversations · resolve · feedback<br/>knowledge · analytics · health"]
+    end
+
+    subgraph PIPELINE["③ ADAPTIVE RESOLUTION PIPELINE"]
+        SCOPE{"Telecom<br/>question?"}
+        NLU["NLU service<br/>issue type · entities · sentiment<br/>severity · chat memory"]
+        RET["Retrieval service<br/>semantic + BM25 + metadata<br/>→ cross-encoder reranker"]
+        EVID{"Evidence score<br/>Known · Uncertain · Unknown"}
+        GEN["Generation service<br/>grounded steps or Gemini<br/>+ citation guard"]
+        WORD["Customer wording<br/>opening line + plain steps"]
+    end
+
+    ANSWER["Cited answer shown in chat"]
+    FB{"Did this<br/>solve it?"}
+
+    subgraph HUMAN["④ HUMAN HANDOFF"]
+        INBOX["Live inbox<br/>chat waits with queue position"]
+        REPLY["Agent takes the chat<br/>replies appear live · bot stays silent"]
+        CLOSE["Agent closes chat as solved"]
+    end
+
+    subgraph LEARN["⑤ HUMAN-APPROVED LEARNING"]
+        QUEUE["Review queue<br/>confirmed fixes · cleaned agent fixes"]
+        REVIEW{"Reviewer<br/>approves?"}
+        PUBLISH["Publish new KB article<br/>staff steps + customer steps<br/>+ dataset row + learned wording"]
+    end
+
+    subgraph DATA["⑥ DATA LAYER"]
+        CSV[["data/*.csv<br/>60K synthetic tickets · KB · taxonomy"]]
+        DB[("Database<br/>SQLite / PostgreSQL + pgvector")]
+        IDX[("Vector index<br/>articles + resolved tickets")]
+    end
+
+    SORRY["Polite reply / sorry message"]
+    REJECT["Rejected · never used"]
+    DENY["401 · sign in again"]
+
+    CUST --> HELP & CHAT
+    AGENT --> ADMIN
+    HELP & CHAT --> API
+    ADMIN --> AUTH
+    AUTH -- "valid" --> API
+    AUTH -- "invalid" --> DENY
+    API --> SCOPE
+    SCOPE -- "no" --> SORRY
+    SCOPE -- "yes" --> NLU --> RET --> EVID --> GEN --> WORD --> ANSWER --> FB
+    FB -- "no · try again (max 3)" --> RET
+    FB -- "yes" --> QUEUE
+    FB -- "still no · asks for a person · critical issue" --> INBOX
+    INBOX --> REPLY --> CLOSE --> QUEUE
+    QUEUE --> REVIEW
+    REVIEW -- "yes" --> PUBLISH
+    REVIEW -- "no" --> REJECT
+    CSV -- "seed on first start" --> DB --> IDX
+    PUBLISH -- "indexed immediately" --> IDX
+    IDX -. "used for every new question" .-> RET
+
+    classDef user fill:#fde9c8,stroke:#b5761a,color:#3b2a10
+    classDef client fill:#e3eefc,stroke:#3a6ab0,color:#10233f
+    classDef server fill:#e8f5e9,stroke:#3b8a3e,color:#123515
+    classDef ai fill:#f3e5f5,stroke:#8a3d9b,color:#2f1236
+    classDef human fill:#fff8e1,stroke:#c49000,color:#3d2e00
+    classDef data fill:#eceff1,stroke:#546e7a,color:#1d2a30
+    classDef stop fill:#ffebee,stroke:#c62828,color:#4a0e0e
+    class CUST,AGENT user
+    class HELP,CHAT,ADMIN,ANSWER client
+    class AUTH,API server
+    class SCOPE,NLU,RET,EVID,GEN,WORD,FB ai
+    class INBOX,REPLY,CLOSE,QUEUE,REVIEW,PUBLISH human
+    class CSV,DB,IDX data
+    class SORRY,REJECT,DENY stop
+```
+
+### 1.2 The same architecture as a text flowchart
+
+For viewers that don't draw Mermaid diagrams:
+
+```
+            ┌──────────────┐              ┌──────────────────────┐
+            │   CUSTOMER   │              │ SUPPORT AGENT / ADMIN│
+            └──────┬───────┘              └───────────┬──────────┘
+                   │                                  │
+                   ▼                                  ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ CLIENT · React + TypeScript + Vite (port 5174)                                      │
+│  ┌────────────────┐  ┌────────────────┐        ┌──────────┐   ┌──────────────────┐  │
+│  │  Help center   │  │  Chat widget   │        │ Sign-in  │──►│ Agent workspace  │  │
+│  │ topics/articles│  │ chat · voice   │        └──────────┘   │ inbox · review · │  │
+│  └───────┬────────┘  └───────┬────────┘                       │ KB · reports     │  │
+│          │                   │                                └────────┬─────────┘  │
+└──────────┼───────────────────┼─────────────────────────────────────────┼────────────┘
+           │ HTTP JSON         │ message, polls every 3 s                 │ Bearer token
+           ▼                   ▼                                          ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ SERVER · FastAPI gateway (port 8000) · /api/v1                                      │
+│  ┌──────────────────────────┐   ┌───────────────────┐   ┌────────────────────────┐  │
+│  │ Public endpoints         │   │ Handoff manager   │◄──│ Token valid? no ► 401  │  │
+│  │ chat · resolve · feedback│──►│ bot → waiting →   │   │   │ yes                │  │
+│  └────────────┬─────────────┘   │ agent → closed    │◄──│ Staff endpoints        │  │
+│               │                 └─────────┬─────────┘   └────────────┬───────────┘  │
+└───────────────┼───────────────────────────┼──────────────────────────┼──────────────┘
+                ▼                           │ agent replies → chat     │
+┌───────────────────────────────────────────┼──────────────────────────┼──────────────┐
+│ ADAPTIVE RESOLUTION PIPELINE              │                          │              │
+│                                           │                          │              │
+│  [1] Scope check ── off-topic ──► sorry message                      │              │
+│        │  └──── "talk to a person" ───────►(handoff)                 │              │
+│        ▼ telecom question                                            │              │
+│  [2] NLU: issue type · entities · sentiment · severity · memory      │              │
+│        │  └──── critical issue ───────────►(handoff)                 │              │
+│        ▼                                                             │              │
+│  [3] Retrieval: semantic + BM25 + metadata ─► cross-encoder rerank ◄─┼── index      │
+│        ▼                                                             │              │
+│  [4] Evidence score: Known │ Uncertain │ Unknown                     │              │
+│        ▼                                                             │              │
+│  [5] Generation: grounded templates or Gemini + citation guard       │              │
+│        ▼                                                             │              │
+│  [6] Customer wording ─► cited answer in chat                        │              │
+│        ▼                                                             │              │
+│  "Did this solve it?"  No (<3) ─► retry [3] │ No (3×) ─► handoff     │              │
+│        │ Yes (new question)                                          │              │
+└────────┼─────────────────────────────────────────────────────────────┼──────────────┘
+         ▼                                                             ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ HUMAN-APPROVED LEARNING LOOP                                                        │
+│  Review queue (confirmed fixes · cleaned agent fixes · new wording)                 │
+│        ▼                                                                            │
+│  Reviewer ── reject ──► never used                                                  │
+│        │ approve                                                                    │
+│        ▼                                                                            │
+│  Publish: new KB article (staff + customer steps) or wording added to an article,   │
+│           dataset row, classifier learns the wording, notice in customer chat       │
+└────────┬────────────────────────────────────────────────────────────────────────────┘
+         ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ DATA LAYER                                                                          │
+│  data/*.csv (60K tickets, KB, taxonomy) ─seed─► Database (SQLite / PostgreSQL +     │
+│  pgvector) ─► Retrieval index (384-d embeddings) ─► used by step [3]                │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1.3 What each block does
+
+| Block | Technology | Responsibility |
+|---|---|---|
+| Help center | React pages (`frontend/src/site`) | Topics, articles and search, loaded live from the server |
+| Chat widget | React + TanStack Query | Customer chat, Yes / Partly / No feedback, "Talk to a person", live agent replies |
+| Agent workspace | React pages (`frontend/src/pages`) | Live inbox, cases, review queue, help articles, trending problems, issue types, reports, settings |
+| Gateway | FastAPI | Public and staff endpoints, staff sign-in, routing to the pipeline |
+| Handoff manager | `services/handoff.py` | Moves a chat between bot, waiting, agent and closed; the bot stays silent while an agent is in the chat |
+| Scope check | `services/scope.py` | Greetings, off-topic questions (sorry message), requests for a person |
+| NLU service | `services/classifier.py`, `entity_extractor.py`, `sentiment.py`, `memory.py` | Issue type with typo correction, entities, sentiment, severity, follow-up memory |
+| Retrieval service | `services/retrieval.py`, `embeddings.py`, `reranker.py` | Hybrid search over help articles and resolved tickets, then re-ranking |
+| Evidence score | `services/evidence.py` | Known / Uncertain / Unknown label for every answer |
+| Generation service | `services/rag.py`, `grounded_templates.py`, `llm_provider.py` | Cited steps; uncited steps are removed |
+| Customer wording | `services/wording.py` | Opening line and plain customer steps |
+| Learning loop | `services/knowledge_evolution.py`, `emerging_issue.py` | Review queue, publishing articles, dataset rows, learned wording, trending problems |
+| Data layer | SQLAlchemy, SQLite or PostgreSQL + pgvector | All stored records and the vector index |
+
+### 1.4 Deployment flowchart
+
+```mermaid
+flowchart LR
+    subgraph LOCAL["Local (default) · one process"]
+        V1["Vite dev server :5174"] -- "/api proxy" --> G1["uvicorn app.main:app :8000<br/>SERVICE_ROLE=all<br/>(NLU + retrieval + generation in-process)"]
+        G1 --> S1[("SQLite")]
+    end
+    subgraph DOCKER["Docker Compose · microservices"]
+        FE["frontend · nginx :8080"] --> GW["backend gateway :8000<br/>SERVICE_ROLE=gateway"]
+        GW -- "X-Internal-Token" --> N2["nlu service"]
+        GW -- "X-Internal-Token" --> R2["retrieval service"]
+        GW -- "X-Internal-Token" --> G2["generation service"]
+        GW --> PG[("PostgreSQL + pgvector")]
+        N2 --> PG
+        R2 --> PG
+        G2 --> PG
+    end
+```
+
+The internal services publish no ports and accept only calls that carry `INTERNAL_API_TOKEN`.
+
+---
+
+## 2. Full executable code checked in to GitHub
+
+**Repository:** https://github.com/thaheeranaseere1119/Customer-support-platform
+
+```
+backend/            FastAPI app (app/api, app/services, app/models), tests/ (pytest)
+frontend/           React + TypeScript + Vite (src/pages admin, src/site customer, src/test vitest)
+data/               Synthetic dataset, help articles, taxonomy, evaluation sets
+scripts/            Seed, ingest, embeddings, evaluate, verify, create staff user
+docs/               Requirements, design decisions, approach, prompts, testing
+docker-compose.yml  PostgreSQL + gateway + nlu + retrieval + generation + frontend
+```
+
+### Run it locally
+
+You need Python 3.11+ and Node.js 20+.
+
+```bash
+cp .env.example .env
+```
+
+Set the admin password in `.env`. The file is gitignored; credentials are never committed.
+
+```bash
+cd backend && python -m venv .venv && .venv/bin/pip install -r requirements.txt
+```
+
+```bash
+cd frontend && npm install
+```
+
+Start the server (terminal 1). On first start it builds the database from `data/` automatically.
+
+```bash
+cd backend && .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Start the client (terminal 2):
+
+```bash
+cd frontend && npm run dev -- --port 5174
+```
+
+- Customer site: http://127.0.0.1:5174/
+- Agent workspace: http://127.0.0.1:5174/admin (sign in with the admin account from `.env`)
+
+### Run it with Docker (microservices + PostgreSQL)
+
+```bash
+docker compose up --build
+```
+
+### Optional AI mode
+
+The app runs fully offline in **demo mode**: grounded templates, no API key needed. To have Gemini write the
+answers, set `DEMO_MODE=false` and `GEMINI_API_KEY` in `.env`. Answers stay grounded: the citation guard rejects any
+step that is not supported by a retrieved source.
+
+### Tests
+
+```bash
+cd backend && .venv/bin/python -m pytest -q
+```
+
+```bash
+cd frontend && npx vitest run
+```
+
+The latest run: **281 backend tests passed, 42 frontend tests passed.**
+
+---
+
+## 3. Additional exploration
+
+These go beyond a basic retrieval chatbot.
+
+| Area | What was built | Why |
+|---|---|---|
+| **Hybrid retrieval** | Semantic search (sentence-transformers all-MiniLM-L6-v2), BM25 keywords and metadata boosts, re-ranked by a cross-encoder (ms-marco-MiniLM-L-6-v2). A hashing fallback is used when the model can't load. | Keyword or vector search alone misses either the exact terms or the paraphrases. |
+| **Evidence scoring** | Each answer is labelled Known / Uncertain / Unknown from retrieval scores, topic match and source quality. | The assistant says when it is unsure instead of guessing. |
+| **Grounded answers + citation guard** | Every step cites a help article or resolved ticket. Uncited or unsupported steps are removed, including from LLM output. | Limits hallucination. |
+| **Adaptive retry** | If the customer says "No", the next attempt uses different evidence and never repeats earlier steps. After 3 attempts the chat goes to a person. | Customers don't get the same answer twice. |
+| **Robust classification** | Word-stem and in-order phrase matching, typo correction ("disconnceting" → "disconnecting"), context rules (travel abroad → roaming), chat memory for follow-ups and topic changes. | Real customers write short, misspelt, casual messages. |
+| **Scope guard** | Greetings get a greeting; non-telecom questions get a polite sorry message. | Keeps the assistant on topic. |
+| **Customer vs agent wording** | Each article has "Resolution steps" (staff) and matching "Customer steps" (plain language). The reply opens with a line built from what the customer said ("Since you've already restarted the router, you can skip that step"). | Customers never see internal jargon. |
+| **Human handoff** | Bot → waiting → agent → closed states; queue position; live 3-second updates in both the customer chat and the admin inbox; the bot stays silent while an agent is in the chat. | A smooth customer ↔ admin conversation. |
+| **Human-approved learning** | Confirmed fixes and agent fixes go to a review queue. Approval publishes a KB article, appends a dataset row, teaches the classifier the wording and notifies the customer. Nothing is learned automatically. | The system improves without unverified knowledge creeping in. |
+| **Agent reply cleaning** | Greetings, the customer's name, questions and sign-offs are stripped. "I've reissued your e-SIM" becomes the staff step "Reissue the customer's e-SIM profile." and the customer step "We'll reissue your e-SIM profile." | Approved articles read like articles, not chat logs. |
+| **Emerging issue detection** | Unknown questions are clustered by meaning and shown as Trending problems. A reviewer can turn a cluster into a new issue type plus article. | New problems surface before they become common. |
+| **Microservice split** | One codebase runs as a single process or as gateway + nlu + retrieval + generation services, with token-protected internal APIs. | Each AI stage can be scaled or deployed separately. |
+| **Security** | Staff sign-in (PBKDF2 hashing, signed tokens, lockout after failed attempts); every admin endpoint requires a token; secrets only in `.env`. | Customers can't reach admin data. |
+| **Voice input** | Browser speech recognition in the chat and in "Test the assistant". | Hands-free input. |
+| **Honest evaluation** | Separate test and practice question sets, seeded wording variants, Wilson 95% lower bounds, and a leakage check. | Scores aren't inflated (see section 4). |
+
+---
+
+## 4. Evals on system health
+
+### 4.1 Live health check
+
+`GET /api/v1/health` reports whether each part of the system is working:
+
+| Check | Example value (current run) |
+|---|---|
+| Status / mode | `ok`, DEMO MODE (LLM provider: mock; Gemini optional) |
+| Database | available, SQLite (PostgreSQL + pgvector in Docker), no fallback in use |
+| Embeddings | sentence_transformers, all-MiniLM-L6-v2, 384 dimensions, loaded |
+| Reranker | cross-encoder ms-marco-MiniLM-L-6-v2, loaded |
+| Retrieval index | 136 documents (44 help articles + 92 resolved-ticket groups), in-memory cosine |
+| Data | 60,032 tickets, 44 active help articles |
+| Service split | role `all` (or gateway / nlu / retrieval / generation, with each service's status) |
+
+The admin **Settings** page shows the same information, and `GET /api/v1/logs` lists recent pipeline events.
+
+### 4.2 Quality evaluation
+
+Run it from the admin **Reports** page or the command line:
+
+```bash
+backend/.venv/bin/python -m scripts.evaluate
+```
+
+**Headline numbers are 95% lower bounds**, not raw percentages. With a small test set, "63 of 63" doesn't prove
+the system is perfect, so the Reports page shows "at least X%" (Wilson score interval). No metric is shown as a
+flat 100%.
+
+#### Realistic customer questions (the main test)
+
+These are 63 questions written the way customers actually write. They are held out from training: the practice sets
+(`tune`, `tune2`) were used for tuning, never this one.
+
+| Metric | Result | 95% lower bound |
+|---|---|---|
+| Correct issue type | 58 / 63 (92.1%) | ≥ 82.7% |
+| Correct help article ranked first | 57 / 63 (90.5%) | ≥ 80.7% |
+| Correct help article in the top 3 | 62 / 63 (98.4%) | ≥ 91.5% |
+| Answered with concrete steps | 62 / 63 (98.4%) | ≥ 91.5% |
+| Clean customer wording (no jargon, no fragments) | 63 / 63 | ≥ 94.3% |
+| Answer follows a single article (no mixed or repeated steps) | 63 / 63 | ≥ 94.3% |
+
+#### Held-out dataset split, with wording variants
+
+Each test complaint is asked in 5 wordings: original, short, with typos, casual, and with extra noise (40 questions).
+
+| Metric | Result | 95% lower bound |
+|---|---|---|
+| Classification accuracy (and macro precision / recall / F1) | 40 / 40 | ≥ 91.2% |
+| Retrieval recall@10 and MRR | 40 / 40 | ≥ 91.2% |
+| Retrieval nDCG@10 | 0.970 | not applicable |
+| Groundedness (steps supported by a source) | 140 / 140 | ≥ 97.3% |
+| Citation correctness | 120 / 120 | ≥ 96.9% |
+| Citation completeness (every step cited) | 140 / 140 | ≥ 97.3% |
+| Each wording style (original / short / typos / casual / noise) | 8 / 8 each | ≥ 67.6% each (small sample) |
+| Leakage check: test tickets found in the retrieval index | 0 | not applicable |
+
+#### Safety and unknown issues
+
+| Metric | Result | 95% lower bound |
+|---|---|---|
+| Unknown (out-of-taxonomy) questions flagged as not Known | 18 / 20 (90%) | ≥ 69.9% |
+| Off-topic questions declined with a sorry message | covered by automated tests | not applicable |
+| Critical issues (e.g. account takeover) sent straight to a person | covered by automated tests | not applicable |
+
+#### Runtime
+
+| Metric | Result |
+|---|---|
+| Average pipeline response time (demo mode) | ≈ 58 ms per question |
+| Average attempts per case | 1.27 |
+| Customer-confirmed resolution rate | 50%. This comes from live customer feedback recorded in the local database so far, which is a small, informal sample. |
+| Answer relevance (mean semantic similarity of question and answer) | 0.65. This is a similarity score, not a percentage. |
+
+### 4.3 Known limits
+
+- "Charged for roaming in France" is still answered with the duplicate-charge article instead of a roaming-charge one.
+- In 5 of the 63 realistic questions the issue type is wrong; the failures are listed on the Reports page.
+- 2 of the 20 unknown questions were answered as if they were a known issue.
+- An approved agent fix can include a step only staff can do (for example "We'll reissue your e-SIM profile"). The
+  customer then asks for a person to have it done.
+- Wording-variant results use 8 base questions, so their lower bounds are wide.
+
+---
+
+## 5. Dataset
+
+All data is **synthetic**, generated to look like real telecom support traffic. It contains no real customer or
+operator data, and every ticket is tagged `[synthetic case …]`.
+
+| File | Contents |
+|---|---|
+| `data/telecom_support_adaptive_60000.csv` | **60,000 tickets**, 32 columns, 30 issue types in 8 categories. Splits: development 48,000 / calibration 6,000 / held_out_test 6,000. The splits are intent-disjoint, so test tickets never appear in the retrieval index. Rows approved by reviewers are appended with ids `TELCO-LIVE-…`. |
+| `data/tickets.csv` | A small demo subset, used by the automated tests |
+| `data/knowledge_base.csv` | 42 seed help articles, each with Symptoms, Resolution steps, Customer steps, Escalate when and Caution |
+| `data/intent_taxonomy.csv` | 30 issue types with keywords, example complaints, category, default product and severity |
+| `data/products.csv`, `data/support_categories.csv` | Products (mobile, broadband, 5G, SIM, …) and support categories |
+| `data/eval_realistic_complaints.csv` | 63 realistic test questions with the expected issue type and article (held out) |
+| `data/tune_realistic_complaints.csv`, `data/tune2_realistic_complaints.csv` | Practice sets used for tuning (64 + 55 questions) |
+| `data/eval_unknown_complaints.csv` | 20 out-of-taxonomy questions for unknown-issue detection |
+| `data/candidate_cases.csv` | Example review-queue items |
+
+**Ticket columns:** `record_id`, `ticket_id`, `customer_id`, `dataset_split`, `customer_complaint`, `category`,
+`intent`, `product`, `severity`, `sentiment`, `language`, `interaction_mode`, `channel`, `entities_json`,
+`conversation_context`, `previous_troubleshooting`, `retrieval_text`, `resolution`, `resolution_attempt`,
+`resolution_status`, `evidence_status`, `evidence_score`, `citation_source_id`, `citation_type`, `customer_feedback`,
+`human_verification_status`, `knowledge_state`, `emerging_class_signal`, `escalation_required`, `source`,
+`source_type`, `created_at`.
+
+**Keeping evaluation honest:** an automated test fails if any training example is too similar to a test or practice
+question (Jaccard similarity ≥ 0.5), and the evaluation checks that no held-out ticket is in the retrieval index.
